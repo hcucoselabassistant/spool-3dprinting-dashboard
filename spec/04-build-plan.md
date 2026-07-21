@@ -33,7 +33,7 @@ Still outstanding, and a blocker for Phase 2:
 
 ---
 
-## Phase 2 — Inventory and fleet
+## Phase 2 — Inventory and fleet ✅ done
 
 > Read spec/03-screens.md sections for /printers and /inventory. Build both
 > screens with full CRUD for admins, read-only for operators. Use Server
@@ -42,6 +42,11 @@ Still outstanding, and a blocker for Phase 2:
 
 **Done when:** you can add your real 16 printers and your real spools, and the
 service-hours column reads zero for all of them.
+
+15 printers entered. Spools are still empty — not a blocker for Phase 3, but
+Phase 4 cannot start a print without one, so they have to exist before the core
+loop. The maintenance-log prompt on returning a printer to service is
+deliberately left to Phase 6, which owns that UI.
 
 Do this before the job flow. Everything downstream needs real printers and
 spools to point at, and entering them is the only genuinely tedious step in the
