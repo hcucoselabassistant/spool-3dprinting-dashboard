@@ -1,26 +1,48 @@
 @import "tailwindcss";
 
+/* Dark by default, not by media query. The lab is dim and the real deployment
+   target is a wall monitor -- see spec/03-screens.md. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0b0d10;
+  --surface: #14181d;
+  --surface-raised: #1c2128;
+  --border: #2a3038;
+  --foreground: #e8eaed;
+  --muted: #9aa4b2;
+
+  /* Status tokens. spec/03-screens.md: define once, never inline a hex.
+     Every status pill, timeline bar, and card border reads from these. */
+  --status-printing: #38bdf8;
+  --status-queued: #a78bfa;
+  --status-submitted: #64748b;
+  --status-failed: #f87171;
+  --status-ready: #4ade80;
+  --status-maintenance: #fbbf24;
+  --status-collected: #6b7280;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+
+  --color-status-printing: var(--status-printing);
+  --color-status-queued: var(--status-queued);
+  --color-status-submitted: var(--status-submitted);
+  --color-status-failed: var(--status-failed);
+  --color-status-ready: var(--status-ready);
+  --color-status-maintenance: var(--status-maintenance);
+  --color-status-collected: var(--status-collected);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
 }
