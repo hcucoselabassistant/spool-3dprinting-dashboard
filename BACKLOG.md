@@ -13,16 +13,13 @@ the live database) or **explicitly-deferred future features** — not app-buildi
 
 ## ▶️ Recommended order
 
-Do the operational blockers first; they're small and gate everything else.
+Deploy is done (#1–#4 ✅ — migrations applied, env vars set, UptimeRobot live;
+health endpoint confirmed returning `{ok:true,db:"up"}`). What's left is live
+verification, then deferred features.
 
-1. **#1, #2 — apply the two pending migrations.** Nothing else is real until
-   these land in the live database: #1 closes a security gap, #2 makes the
-   health endpoint work. Minutes of work (paste into SQL editor).
-2. **#3, #4 — finish the deploy wiring** (Vercel env vars, then point
-   UptimeRobot at `/api/health`). #4 depends on #2 being applied.
-3. **#5 — add a spool.** One row. It unblocks *all* live testing (#6–#10) — no
+1. **#5 — add a spool.** One row. It unblocks *all* live testing (#6–#10) — no
    print can start without filament on record.
-4. **#6, #9 — the two highest-value verifications**: the failure path (#6, the
+2. **#6, #9 — the two highest-value verifications**: the failure path (#6, the
    one behavior the whole data model exists for) and TA lockout (#9, proves the
    security model actually holds). Then #7, #8, #10 as time allows.
 
@@ -33,42 +30,6 @@ the manual flow has run in the lab for a month.
 ---
 
 ## 📋 Open & in-progress
-
-### 1. Apply migration `…150700_harden_job_and_storage.sql` to the live DB  [🔴 blocking — security]
-Two direct-API authorization fixes from the security review. Without it, a TA can
-`PATCH` `job.status` on their own job via PostgREST and self-approve, bypassing
-operator approval and the quota gate; and any staff can delete any job's file.
-- **Where:** `supabase/migrations/20260721150700_harden_job_and_storage.sql`
-  (already written and committed). Adds a `job` status-guard trigger and tightens
-  the `job-files` storage policies.
-- **Action:** paste into Supabase → SQL Editor, run once. No type regen needed
-  (trigger + policies only, no schema change).
-- **Effort:** XS.
-
-### 2. Apply migration `…150800_health_ping.sql` to the live DB  [🔴 blocking — health endpoint]
-`/api/health` currently returns `db:"error"` in production because it ran as
-`anon`, which has no table privileges (revoked in `…150300`). This adds
-`health_ping()`, an anon-callable no-data function, and the route already calls it.
-- **Where:** `supabase/migrations/20260721150800_health_ping.sql` (written,
-  committed, pushed); route at `app/api/health/route.ts`.
-- **Action:** paste into SQL Editor, run once. Then the live endpoint returns
-  `{ok:true,db:"up"}`.
-- **Effort:** XS.
-
-### 3. Set/verify environment variables in Vercel  [🟠 deploy]
-The app builds but in-app account creation fails without the service key.
-- **What:** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and
-  `SUPABASE_SERVICE_ROLE_KEY` (server variable, **no** `NEXT_PUBLIC_` prefix). Do
-  **not** add `SUPABASE_DB_URL` (local tooling secret only).
-- **Where:** documented in `.env.example` and `MAINTAINING.md §7`. Consumed by
-  `lib/env.ts` and `lib/supabase/admin.ts`.
-- **Effort:** XS.
-
-### 4. Configure the UptimeRobot monitor  [🟠 deploy] — depends on #2
-Point a monitor at `https://spool-3dprinting-dashboard.vercel.app/api/health`.
-Keeps the free Supabase project from pausing on database inactivity, and alerts
-on downtime. Only meaningful once #2 is applied (endpoint must return 200).
-- **Effort:** XS.
 
 ### 5. Seed inventory with real spools  [🟠 unblocks testing]
 Inventory is empty. `guard_spool_sufficient` rejects any attempt whose spool
@@ -100,8 +61,8 @@ and the `attempt`/`job` realtime publication.
 ### 9. Live-verify TA lockout / RLS enforcement  [🟡 verification — highest value]
 Create a test `ta` account; confirm they (a) can't reach `/printers`,
 `/inventory`, `/reports`, or the floor; (b) can't edit another user's job; (c)
-after #1 is applied, can't self-approve their own job via a direct API call.
-Proves the three-role model holds at the database, not just the UI.
+can't self-approve their own job via a direct API call (the guard from #1 is now
+live). Proves the three-role model holds at the database, not just the UI.
 - **Effort:** S.
 
 ### 10. Live-verify in-app account creation  [🟡 verification] — depends on #3
@@ -183,6 +144,27 @@ regression net.
 ---
 
 ## ✅ Completed & resolved
+
+### 1. Apply migration `…150700_harden_job_and_storage.sql`  [✅ DONE]
+Applied to the live database. Closes the security-review findings: the
+`job_guard_status` trigger blocks a TA from self-approving their own job via a
+direct API call, and the `job-files` bucket delete/update is now
+uploader-or-operator only.
+
+### 2. Apply migration `…150800_health_ping.sql`  [✅ DONE]
+Applied. Verified live: `GET /api/health` → `{"ok":true,"db":"up"}` (HTTP 200).
+The endpoint now calls the anon-granted `health_ping()` instead of a
+privilege-revoked table.
+
+### 3. Vercel environment variables  [✅ DONE]
+Set in Vercel, including `SUPABASE_SERVICE_ROLE_KEY` as a server variable. (Live
+confirmation of in-app account creation is tracked separately as #10.)
+
+### 4. UptimeRobot monitor  [✅ DONE]
+Monitoring `/api/health` (which is confirmed returning 200), keeping the free
+Supabase project awake and alerting on downtime.
+
+---
 
 Shipped in v1 (all on `main`, built phase-by-phase per `spec/04-build-plan.md`):
 
