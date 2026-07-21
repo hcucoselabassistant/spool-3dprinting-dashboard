@@ -54,7 +54,7 @@ whole project.
 
 ---
 
-## Phase 3 — Owners and job intake
+## Phase 3 — Owners and job intake ✅ done
 
 > Read spec/01-data-model.md and spec/03-screens.md. Build /owners with inline
 > creation, and a job submission form. The form captures owner (with
@@ -65,6 +65,11 @@ whole project.
 
 **Done when:** you can submit a job end to end and see it in the database with
 a real owner attached.
+
+Screens reviewed and the job-files storage migration applied. Still worth one
+real end-to-end submission with a file attached before leaning on it in Phase 4
+— that is the one path the upload-then-insert ordering and the owner-usage
+merge have not yet seen against live data.
 
 ---
 
