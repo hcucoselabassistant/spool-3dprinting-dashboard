@@ -9,7 +9,13 @@ import type { Database } from "@/lib/database.types";
 type FailureReason = Database["public"]["Enums"]["failure_reason"];
 type AttemptOutcome = Database["public"]["Enums"]["attempt_outcome"];
 
-export type ActionState = { error: string | null; ok?: boolean };
+export type ActionState = {
+  error: string | null;
+  ok?: boolean;
+  /** Set when approval would exceed the owner's quota. The UI surfaces this and
+   *  offers to override -- quota is a warning, never a block. */
+  quotaWarning?: string;
+};
 
 const OK: ActionState = { error: null, ok: true };
 
@@ -23,23 +29,70 @@ function revalidateLoop() {
 /**
  * Approve: submitted -> queued. Operator-driven, so the app writes job.status
  * directly. This is one of the four transitions that are NOT the trigger's.
+ *
+ * At approval, successful grams already used are checked against the owner's
+ * quota. Over quota WARNS but never BLOCKS -- the alternative is a student's
+ * coursework stuck at 11pm with nobody to appeal to (spec/02-workflows.md). The
+ * first call returns the warning; a second call with override=true proceeds and
+ * logs who overrode what.
  */
 export async function approveJob(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireStaff();
+  const staff = await requireStaff();
   const id = formData.get("job_id");
+  const override = formData.get("override") === "true";
   if (typeof id !== "string") return { error: "Missing job id." };
 
   const supabase = await createClient();
+
+  const { data: job, error: jobError } = await supabase
+    .from("job")
+    .select("est_grams, owner_id, status")
+    .eq("id", id)
+    .single();
+  if (jobError) return { error: jobError.message };
+  if (job.status !== "submitted") {
+    return { error: `This job is ${job.status}, not awaiting approval.` };
+  }
+
+  if (!override) {
+    const [{ data: owner }, { data: usage }] = await Promise.all([
+      supabase.from("owner").select("display_name, quota_grams").eq("id", job.owner_id).single(),
+      supabase.from("owner_usage").select("grams_success").eq("owner_id", job.owner_id).maybeSingle(),
+    ]);
+
+    if (owner?.quota_grams != null) {
+      const used = usage?.grams_success ?? 0;
+      const after = used + job.est_grams;
+      if (after > owner.quota_grams) {
+        return {
+          error: null,
+          quotaWarning:
+            `${owner.display_name} has used ${used} g of a ${owner.quota_grams} g quota. ` +
+            `Approving this adds ${job.est_grams} g, reaching ${after} g. Approve anyway?`,
+        };
+      }
+    }
+  }
+
   const { error } = await supabase
     .from("job")
     .update({ status: "queued" })
     .eq("id", id)
-    .eq("status", "submitted"); // no-op if it already moved on
+    .eq("status", "submitted");
 
   if (error) return { error: error.message };
+
+  if (override) {
+    // No override-log table in v1; the server log is the record. Build the
+    // trigger point, log it, stop there -- same rule as notifications.
+    console.warn(
+      `[quota override] ${staff.full_name} (${staff.id}) approved job ${id} over its owner's quota.`,
+    );
+  }
+
   revalidateLoop();
   return OK;
 }

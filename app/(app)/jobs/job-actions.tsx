@@ -42,12 +42,7 @@ export function JobActions({
   return (
     <div className="flex items-center justify-end gap-2">
       {job.status === "submitted" ? (
-        <InlineAction
-          action={approveJob}
-          jobId={job.id}
-          label="Approve"
-          primary
-        />
+        <ApproveControl jobId={job.id} />
       ) : null}
 
       {job.status === "queued" ? (
@@ -122,6 +117,56 @@ export function JobActions({
         <CancelModal job={job} onClose={() => setModal(null)} />
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Approve, with the quota check. A first click may come back with a quota
+ * warning; the confirm dialog then re-submits with override set. Quota never
+ * blocks -- it only makes the operator look before overriding.
+ */
+function ApproveControl({ jobId }: { jobId: string }) {
+  const [state, action] = useActionState(approveJob, INITIAL);
+
+  return (
+    <>
+      <form action={action} className="flex items-center gap-2">
+        <input type="hidden" name="job_id" value={jobId} />
+        {state.error ? (
+          <span className="text-xs text-status-failed">{state.error}</span>
+        ) : null}
+        <button
+          type="submit"
+          className="rounded-md bg-status-printing px-3 py-1.5 text-sm font-medium text-background"
+        >
+          Approve
+        </button>
+      </form>
+
+      {state.quotaWarning ? (
+        <Modal title="Over quota" onClose={() => location.reload()}>
+          <p className="text-sm">{state.quotaWarning}</p>
+          <div className="mt-4 flex justify-end gap-2">
+            <button
+              onClick={() => location.reload()}
+              className="rounded-md border border-border px-4 py-2 text-sm"
+            >
+              Don’t approve
+            </button>
+            <form action={action}>
+              <input type="hidden" name="job_id" value={jobId} />
+              <input type="hidden" name="override" value="true" />
+              <button
+                type="submit"
+                className="rounded-md bg-status-printing px-4 py-2 text-sm font-medium text-background"
+              >
+                Approve anyway
+              </button>
+            </form>
+          </div>
+        </Modal>
+      ) : null}
+    </>
   );
 }
 
