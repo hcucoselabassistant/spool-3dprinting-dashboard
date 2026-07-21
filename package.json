@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "db:types": "supabase gen types typescript --linked > lib/database.types.ts",
-    "db:push": "supabase db push"
+    "db:push": "supabase db push",
+    "db:bundle": "node scripts/bundle-migrations.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",

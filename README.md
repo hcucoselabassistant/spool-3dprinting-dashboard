@@ -21,6 +21,8 @@ shell. No feature screens yet. See `spec/04-build-plan.md`.
 The app is already scaffolded; `npm install` covers the JS side. What remains is
 pointing it at a Supabase project.
 
+### If the CLI can manage your project
+
 ```bash
 npm install
 
@@ -30,9 +32,38 @@ npm run db:push          # applies supabase/migrations/*.sql
 npm run db:types         # regenerates lib/database.types.ts
 ```
 
-`lib/database.types.ts` is currently a placeholder covering only `app_user`,
-because generating it requires a linked project. Run `npm run db:types` before
-starting Phase 2 and do not extend the stub by hand.
+### If the project lives on another account
+
+`supabase link` fails with a privileges error when the project belongs to an
+account or organisation your CLI session cannot manage — including projects
+provisioned through the Vercel integration. Apply the schema by hand instead:
+
+```bash
+npm run db:bundle        # writes supabase/bundle.sql
+```
+
+Paste that file into the Supabase SQL editor and run it once. It is wrapped in a
+transaction and is deliberately **not** idempotent — a second run fails on the
+`create type` statements rather than half-applying.
+
+`supabase/bundle.sql` is generated and gitignored. Never edit it; edit the
+migrations and regenerate.
+
+Requires **Postgres 15 or newer** — the views use `security_invoker`, which
+does not exist before 15.
+
+### Database types
+
+`lib/database.types.ts` is currently a placeholder covering only `app_user`.
+Regenerate it before starting Phase 2, and do not extend the stub by hand.
+Type generation works off a direct connection string, so it does not need
+management access to the project:
+
+```bash
+npx supabase gen types typescript \
+  --db-url "postgresql://postgres:<db-password>@db.<project-ref>.supabase.co:5432/postgres" \
+  > lib/database.types.ts
+```
 
 Copy `.env.example` to `.env.local` and fill in the values from your Supabase
 project settings. `SUPABASE_SERVICE_ROLE_KEY` is not used by any code yet — the
