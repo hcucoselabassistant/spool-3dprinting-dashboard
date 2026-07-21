@@ -10,7 +10,8 @@ import { supabaseEnv } from "@/lib/env";
 // proper lives in lib/auth.ts next to the data -- this runs on every prefetch
 // and must stay cheap.
 
-const PUBLIC_PATHS = ["/login", "/auth"];
+// /api/health is the UptimeRobot keep-alive and must answer without a session.
+const PUBLIC_PATHS = ["/login", "/auth", "/api/health"];
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
