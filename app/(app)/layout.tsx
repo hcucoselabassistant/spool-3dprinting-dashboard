@@ -3,6 +3,8 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/auth";
 import { signOut } from "@/app/login/actions";
 
+import { RealtimeRefresh } from "./realtime-refresh";
+
 // Routes are fixed at six -- spec/03-screens.md says resist adding a seventh.
 // The ones not yet built are added in their own phases.
 const NAV = [
@@ -58,6 +60,7 @@ export default async function AppLayout({
       </header>
 
       <main className="flex-1 p-6">{children}</main>
+      <RealtimeRefresh />
     </div>
   );
 }
