@@ -70,16 +70,33 @@ project settings. `SUPABASE_SERVICE_ROLE_KEY` is not used by any code yet — th
 RLS policies cover the app — so leave it unset unless something needs to bypass
 RLS, and never expose it with a `NEXT_PUBLIC_` prefix.
 
-Seed yourself as an admin from the Supabase SQL editor, after creating your
-account. `app_user.id` must match your `auth.users` id:
+## Staff accounts
+
+Turn **off** public signup first, at Authentication → Sign In / Providers →
+Email → "Allow new users to sign up". The provisioning trigger makes every new
+`auth.users` row an operator, which is only safe while the sole way to create
+one is an admin doing it deliberately.
+
+To add a TA: Authentication → Users → Add user, enter an email and a password,
+tick **Auto Confirm User**, and hand them the password. Their `app_user` row is
+created automatically as an `operator` — no uuid copying.
+
+Promote yourself once, from the SQL editor:
 
 ```sql
-insert into app_user (id, email, full_name, role)
-values ('<your-auth-uid>', 'you@hc.edu', 'Your Name', 'admin');
+update app_user set role = 'admin' where email = 'you@hc.edu';
 ```
 
-Until that row exists you can authenticate but you are not staff, and the app
-will bounce you back to `/login`. That is the intended behaviour.
+To revoke access, deactivate rather than delete — `app_user` is referenced by
+`job` and `attempt`, and deletion is blocked on purpose so history survives:
+
+```sql
+update app_user set active = false where email = 'former-ta@hc.edu';
+```
+
+Authenticating and being staff are separate. Someone with an `auth.users` row
+but no active `app_user` row is bounced to `/login?error=not-staff`. That is
+intended, and it is why signup alone confers nothing.
 
 ## Deploying
 
