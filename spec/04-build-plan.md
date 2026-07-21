@@ -96,7 +96,7 @@ this phase done.
 
 ---
 
-## Phase 5 — The floor view
+## Phase 5 — The floor view ✅ built
 
 > Read spec/03-screens.md section for /. Build the dashboard: summary strip,
 > printer timeline for the next 12 hours, merged needs-attention list, and the
@@ -112,7 +112,7 @@ client in `lib/supabase/client.ts`; realtime still respects RLS.
 
 ---
 
-## Phase 6 — History and detail
+## Phase 6 — History and detail ✅ built
 
 > Build /jobs with filtering by status, owner, and printer, and /jobs/[id] with
 > the full attempt history. Add the maintenance log UI to the printer detail
@@ -123,7 +123,7 @@ alone.
 
 ---
 
-## Phase 7 — Reporting
+## Phase 7 — Reporting ✅ built
 
 > Surface the printer_reliability and owner_usage views. Add a quota warning at
 > job approval time that warns but does not block, and logs overrides. Add a

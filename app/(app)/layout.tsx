@@ -13,6 +13,7 @@ const NAV = [
   { href: "/printers", label: "Printers" },
   { href: "/inventory", label: "Inventory" },
   { href: "/owners", label: "Owners" },
+  { href: "/reports", label: "Reports" },
 ] as const;
 
 export default async function AppLayout({

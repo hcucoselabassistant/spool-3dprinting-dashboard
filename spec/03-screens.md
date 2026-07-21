@@ -1,6 +1,7 @@
 # 03 — Screens
 
-Six routes. Resist adding a seventh.
+Six routes, plus `/reports` added in Phase 7 by explicit decision. Resist an
+eighth.
 
 ```
 /                     Floor (the dashboard)
@@ -9,6 +10,7 @@ Six routes. Resist adding a seventh.
 /printers             Printer fleet and service status
 /inventory            Spools
 /owners               Owners, quotas, usage
+/reports              Monthly filament cost and printer reliability
 ```
 
 Admin-only: `/inventory` and `/owners` for writes, plus a `/settings/users`

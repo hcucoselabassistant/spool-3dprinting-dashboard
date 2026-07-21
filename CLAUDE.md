@@ -47,9 +47,12 @@ Do not build these unless explicitly asked:
 - Student-facing portal or self-service submission
 - Email/SMS notification delivery (build the trigger point, log it, stop there)
 - Slicer integration or G-code parsing (accept typed estimates for now)
-- Cost reporting UI (the SQL views exist; no screen yet)
 - Multi-site or multi-lab support
 - Mobile-optimised layouts beyond basic responsive behaviour
+
+Cost reporting UI was originally out of scope but was pulled in during Phase 7
+by explicit decision, as the `/reports` route (monthly filament cost by owner
+and course, plus printer reliability). That makes seven routes, not six.
 
 ## Things that will look like bugs but are not
 
