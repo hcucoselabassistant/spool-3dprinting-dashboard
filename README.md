@@ -54,16 +54,25 @@ does not exist before 15.
 
 ### Database types
 
-`lib/database.types.ts` is currently a placeholder covering only `app_user`.
-Regenerate it before starting Phase 2, and do not extend the stub by hand.
-Type generation works off a direct connection string, so it does not need
-management access to the project:
+Regenerate `lib/database.types.ts` whenever the schema changes. Never edit it by
+hand — a type that drifts from the schema fails at runtime rather than at
+compile time.
 
 ```bash
-npx supabase gen types typescript \
-  --db-url "postgresql://postgres:<db-password>@db.<project-ref>.supabase.co:5432/postgres" \
-  > lib/database.types.ts
+set -a; . ./.env.local; set +a
+npx supabase gen types typescript --db-url "$SUPABASE_DB_URL" > lib/database.types.ts
 ```
+
+Two things this needs, both of which look like unrelated failures:
+
+- **Docker running.** The CLI runs `postgres-meta` in a container to introspect
+  the schema, even against a remote database. `open -a Docker` first. Nothing
+  about the app itself needs Docker; this is the only use for it.
+- **The session pooler URL, not the direct one.** `db.<ref>.supabase.co` is
+  IPv6-only, and connections fail outright on a network without IPv6. Take the
+  **Session pooler** string from Settings → Database (host
+  `aws-N-<region>.pooler.supabase.com`, port 5432, username
+  `postgres.<project-ref>`) and keep it in `.env.local` as `SUPABASE_DB_URL`.
 
 Copy `.env.example` to `.env.local` and fill in the values from your Supabase
 project settings. `SUPABASE_SERVICE_ROLE_KEY` is not used by any code yet — the
