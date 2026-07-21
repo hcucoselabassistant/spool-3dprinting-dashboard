@@ -12,8 +12,12 @@ create trigger job_touch_updated_at
   for each row execute function touch_job_updated_at();
 
 -- Starting an attempt puts the job and printer into 'printing'.
+--
+-- security definer is load-bearing. Trigger functions run as the invoking user,
+-- so without it these cascading updates are filtered by the target table's RLS
+-- policies and silently affect zero rows -- no error, just missing state.
 create or replace function on_attempt_start() returns trigger
-language plpgsql as $$
+language plpgsql security definer set search_path = public as $$
 begin
   update job     set status = 'printing' where id = new.job_id;
   update printer set state  = 'printing' where id = new.printer_id;
@@ -26,8 +30,12 @@ create trigger attempt_start
 
 -- Finalising an attempt decrements the spool, frees the printer, and advances
 -- the job. Filament is consumed on failure too.
+--
+-- security definer for the same reason as on_attempt_start, and it matters most
+-- here: operators have no write policy on spool, so an operator finalising a
+-- print would record actual_grams while the spool never decremented.
 create or replace function on_attempt_finalise() returns trigger
-language plpgsql as $$
+language plpgsql security definer set search_path = public as $$
 begin
   if old.ended_at is null and new.ended_at is not null then
 

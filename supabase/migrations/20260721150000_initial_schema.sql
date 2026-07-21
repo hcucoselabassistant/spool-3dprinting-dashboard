@@ -126,7 +126,11 @@ create table maintenance_log (
 create index maintenance_printer_idx on maintenance_log (printer_id, performed_at desc);
 
 -- Derived: machine hours accumulated since the last logged service.
-create view printer_service_status as
+--
+-- Every view below is security_invoker. Without it a view runs with its owner's
+-- rights and ignores the RLS on the tables underneath, which would make
+-- owner_usage -- names, course codes, spend -- readable with the anon key.
+create view printer_service_status with (security_invoker = on) as
 select
   p.id                as printer_id,
   p.name,
@@ -146,7 +150,7 @@ left join attempt a on a.printer_id = p.id
 group by p.id, p.name, p.state, p.service_interval_hours, m.last_service_at;
 
 -- Derived: reliability per printer, last 90 days.
-create view printer_reliability as
+create view printer_reliability with (security_invoker = on) as
 select
   p.id   as printer_id,
   p.name,
@@ -164,7 +168,7 @@ group by p.id, p.name;
 
 -- Derived: quota and cost per owner. Failed attempts are counted separately so
 -- policy can decide whether to charge them.
-create view owner_usage as
+create view owner_usage with (security_invoker = on) as
 select
   o.id as owner_id,
   o.display_name,
