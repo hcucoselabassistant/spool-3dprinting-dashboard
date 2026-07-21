@@ -9,7 +9,7 @@ The prompt under each phase is meant to be pasted verbatim.
 
 ---
 
-## Phase 1 — Schema and auth ✅ code complete
+## Phase 1 — Schema and auth ✅ done
 
 > Read CLAUDE.md and spec/01-data-model.md. Apply the migrations in
 > supabase/migrations/ to the linked project, generate TypeScript types into
@@ -21,17 +21,15 @@ The prompt under each phase is meant to be pasted verbatim.
 **Done when:** you can log in, `app_user` has your admin row, `npm run build`
 passes, and a logged-out request to `/` redirects.
 
-The code is written and the build passes. Two steps need a live project and are
-outstanding — do them before Phase 2:
+Schema applied by hand via `supabase/bundle.sql` — the project lives on an
+account the CLI cannot manage, so `link` and `db push` are unavailable. See the
+README for that route.
 
-1. `npx supabase link --project-ref <ref>` then `npm run db:push`. The
-   migrations have never been executed against a real Postgres, so expect to
-   fix a syntax error or two on first push.
-2. `npm run db:types` to replace the `app_user`-only placeholder in
-   `lib/database.types.ts`.
+Still outstanding, and a blocker for Phase 2:
 
-Then create your account, insert your `app_user` admin row (see README), and
-confirm the redirect behaviour.
+- `lib/database.types.ts` is the `app_user`-only placeholder. Regenerate it
+  with the `--db-url` command in the README before writing any query, and do
+  not extend the stub by hand.
 
 ---
 
