@@ -6,14 +6,16 @@ import { signOut } from "@/app/login/actions";
 import { RealtimeRefresh } from "./realtime-refresh";
 
 // operatorOnly links are hidden from TAs, who have no access to the floor,
-// printers, inventory, or reports. Jobs and Owners are for all staff.
+// printers, inventory, or reports. Jobs and Owners are for all staff. Users is
+// admin-only.
 const NAV = [
-  { href: "/", label: "Floor", operatorOnly: true },
-  { href: "/jobs", label: "Jobs", operatorOnly: false },
-  { href: "/printers", label: "Printers", operatorOnly: true },
-  { href: "/inventory", label: "Inventory", operatorOnly: true },
-  { href: "/owners", label: "Owners", operatorOnly: false },
-  { href: "/reports", label: "Reports", operatorOnly: true },
+  { href: "/", label: "Floor", operatorOnly: true, adminOnly: false },
+  { href: "/jobs", label: "Jobs", operatorOnly: false, adminOnly: false },
+  { href: "/printers", label: "Printers", operatorOnly: true, adminOnly: false },
+  { href: "/inventory", label: "Inventory", operatorOnly: true, adminOnly: false },
+  { href: "/owners", label: "Owners", operatorOnly: false, adminOnly: false },
+  { href: "/reports", label: "Reports", operatorOnly: true, adminOnly: false },
+  { href: "/settings/users", label: "Users", operatorOnly: true, adminOnly: true },
 ] as const;
 
 export default async function AppLayout({
@@ -23,7 +25,11 @@ export default async function AppLayout({
 }) {
   const staff = await requireStaff();
   const operator = canOperate(staff);
-  const nav = NAV.filter((item) => operator || !item.operatorOnly);
+  const isAdmin = staff.role === "admin";
+  const nav = NAV.filter(
+    (item) =>
+      (operator || !item.operatorOnly) && (isAdmin || !item.adminOnly),
+  );
   const home = operator ? "/" : "/jobs";
 
   return (

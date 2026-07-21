@@ -86,8 +86,14 @@ Email → "Allow new users to sign up". The provisioning trigger makes every new
 `auth.users` row an operator, which is only safe while the sole way to create
 one is an admin doing it deliberately.
 
-To add someone: Authentication → Users → Add user, enter an email and a
-password, tick **Auto Confirm User**, and hand them the password. Their
+Admins manage staff in-app at **/settings/users**: create an account (name,
+email, temporary password, role) and change roles or deactivate accounts from
+there. Creating an account uses the Supabase Admin API, so
+`SUPABASE_SERVICE_ROLE_KEY` must be set (server-side only, no `NEXT_PUBLIC_`
+prefix) in `.env.local` and in Vercel.
+
+The dashboard route still works if you prefer it: Authentication → Users → Add
+user, enter an email and a password, tick **Auto Confirm User**. Their
 `app_user` row is created automatically as a **`ta`** — the least-privileged
 role — no uuid copying.
 
