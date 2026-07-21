@@ -2,16 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireStaff } from "@/lib/auth";
+import { canOperate, requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export type ActionState = { error: string | null };
 
-async function requireAdmin(): Promise<string | null> {
+// Inventory is operator/admin territory; a TA has no access. RLS enforces it --
+// this just turns a silent zero-row write into a sentence.
+async function requireOperate(): Promise<string | null> {
   const staff = await requireStaff();
-  return staff.role === "admin"
-    ? null
-    : "Only administrators can change inventory.";
+  return canOperate(staff) ? null : "You do not have access to inventory.";
 }
 
 function readInt(value: FormDataEntryValue | null): number | null {
@@ -42,7 +42,7 @@ export async function createSpool(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const denied = await requireAdmin();
+  const denied = await requireOperate();
   if (denied) return { error: denied };
 
   const material = formData.get("material");
@@ -92,7 +92,7 @@ export async function updateSpool(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const denied = await requireAdmin();
+  const denied = await requireOperate();
   if (denied) return { error: denied };
 
   const id = formData.get("id");
@@ -141,7 +141,7 @@ export async function setSpoolRetired(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const denied = await requireAdmin();
+  const denied = await requireOperate();
   if (denied) return { error: denied };
 
   const id = formData.get("id");

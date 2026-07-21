@@ -11,11 +11,11 @@ import { EditPrinterForm, PrinterStateControl } from "./printer-form";
 
 export function PrinterCard({
   printer,
-  isAdmin,
+  canManage,
   maintenance,
 }: {
   printer: FleetPrinter;
-  isAdmin: boolean;
+  canManage: boolean;
   maintenance: MaintenanceEntry[];
 }) {
   const [editing, setEditing] = useState(false);
@@ -88,10 +88,10 @@ export function PrinterCard({
       <div className="mt-4 flex items-end justify-between gap-2">
         <PrinterStateControl
           printer={printer}
-          canRetire={isAdmin}
+          canRetire={canManage}
           hoursSinceService={printer.hoursSinceService}
         />
-        {isAdmin && !editing ? (
+        {canManage && !editing ? (
           <button
             onClick={() => setEditing(true)}
             className="rounded-md border border-border px-3 py-2 text-sm text-muted hover:text-foreground"

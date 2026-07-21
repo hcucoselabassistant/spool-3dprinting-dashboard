@@ -1,4 +1,4 @@
-import { requireStaff } from "@/lib/auth";
+import { requireOperator } from "@/lib/auth";
 import { getAvailablePrinters, getViableSpools } from "@/lib/queries/core";
 import { getFloorData } from "@/lib/queries/floor";
 
@@ -12,7 +12,8 @@ import { Timeline } from "./timeline";
 export const dynamic = "force-dynamic";
 
 export default async function FloorPage() {
-  await requireStaff();
+  // The floor is the operator's shift screen. TAs are redirected to /jobs.
+  await requireOperator();
 
   const [floor, printers, spools] = await Promise.all([
     getFloorData(),

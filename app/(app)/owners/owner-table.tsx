@@ -74,10 +74,10 @@ export function InlineCreateOwner() {
 
 export function OwnerRow({
   owner,
-  isAdmin,
+  canEdit,
 }: {
   owner: OwnerWithUsage;
-  isAdmin: boolean;
+  canEdit: boolean;
 }) {
   const [editing, setEditing] = useState(false);
 
@@ -119,7 +119,7 @@ export function OwnerRow({
         </div>
 
         <div className="col-span-2 text-right">
-          {isAdmin ? (
+          {canEdit ? (
             <button
               onClick={() => setEditing((v) => !v)}
               className="rounded-md border border-border px-3 py-1.5 text-muted hover:text-foreground"

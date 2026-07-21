@@ -1,12 +1,13 @@
 import Link from "next/link";
 
 import { StatusPill } from "@/components/status-pill";
-import { requireStaff } from "@/lib/auth";
+import { canOperate, requireStaff } from "@/lib/auth";
 import { formatDate, formatGrams, formatMinutes } from "@/lib/format";
 import {
   getAvailablePrinters,
   getLiveAttemptsByJob,
   getViableSpools,
+  type ViableSpool,
 } from "@/lib/queries/core";
 import { getJobs, getPrinterOptions, type JobFilters as Filters } from "@/lib/queries/jobs";
 import { getOwnerOptions } from "@/lib/queries/owners";
@@ -15,6 +16,7 @@ import type { Database } from "@/lib/database.types";
 import { JobActions } from "./job-actions";
 import { JobFilters } from "./job-filters";
 import { NewJobForm } from "./job-form";
+import type { PrinterOption } from "./start-modal";
 
 export const metadata = { title: "Jobs · Spool" };
 
@@ -25,7 +27,8 @@ export default async function JobsPage({
 }: {
   searchParams: Promise<{ status?: string; owner?: string; printer?: string }>;
 }) {
-  await requireStaff();
+  const staff = await requireStaff();
+  const operator = canOperate(staff);
   const sp = await searchParams;
 
   const filters: Filters = {
@@ -34,15 +37,24 @@ export default async function JobsPage({
     printerId: sp.printer || undefined,
   };
 
-  const [owners, printerOptions, jobs, printers, spools, liveAttempts] =
-    await Promise.all([
-      getOwnerOptions(),
-      getPrinterOptions(),
-      getJobs(filters),
+  // The start/finish modals need printers and spools, which only operators can
+  // read. A TA never sees those controls, so skip the reads entirely.
+  const [owners, printerOptions, jobs] = await Promise.all([
+    getOwnerOptions(),
+    getPrinterOptions(),
+    getJobs(filters),
+  ]);
+
+  let printers: PrinterOption[] = [];
+  let spools: ViableSpool[] = [];
+  let liveAttempts = new Map<string, string>();
+  if (operator) {
+    [printers, spools, liveAttempts] = await Promise.all([
       getAvailablePrinters(),
       getViableSpools(),
       getLiveAttemptsByJob(),
     ]);
+  }
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -95,6 +107,8 @@ export default async function JobsPage({
                   printers={printers}
                   spools={spools}
                   liveAttemptId={liveAttempts.get(job.id) ?? null}
+                  canOperate={operator}
+                  isOwn={job.submitted_by === staff.id}
                 />
               </div>
             </div>

@@ -86,14 +86,25 @@ Email → "Allow new users to sign up". The provisioning trigger makes every new
 `auth.users` row an operator, which is only safe while the sole way to create
 one is an admin doing it deliberately.
 
-To add a TA: Authentication → Users → Add user, enter an email and a password,
-tick **Auto Confirm User**, and hand them the password. Their `app_user` row is
-created automatically as an `operator` — no uuid copying.
+To add someone: Authentication → Users → Add user, enter an email and a
+password, tick **Auto Confirm User**, and hand them the password. Their
+`app_user` row is created automatically as a **`ta`** — the least-privileged
+role — no uuid copying.
 
-Promote yourself once, from the SQL editor:
+There are three roles (see CLAUDE.md):
+
+- `ta` — creates jobs and owners; no access to printers, inventory, reports, or
+  other staff.
+- `operator` — runs the floor and manages printers, inventory, and owners.
+- `admin` — everything, including managing accounts.
+
+Promote from the SQL editor as needed:
 
 ```sql
-update app_user set role = 'admin' where email = 'you@hc.edu';
+update app_user set role = 'admin'    where email = 'you@hc.edu';
+update app_user set role = 'operator' where email = 'floor-lead@hc.edu';
+-- someone left the operator/admin tier but is still a TA:
+update app_user set role = 'ta'       where email = 'former-lead@hc.edu';
 ```
 
 To revoke access, deactivate rather than delete — `app_user` is referenced by

@@ -35,6 +35,8 @@ drop function if exists guard_printer_available();
 drop function if exists guard_spool_sufficient();
 drop function if exists touch_job_updated_at();
 drop function if exists is_staff();
+drop function if exists is_admin();
+drop function if exists can_operate();
 -- Before the types, since this one takes a user_role argument.
 drop function if exists current_role_is(user_role);
 

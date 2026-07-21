@@ -1,19 +1,19 @@
 import Link from "next/link";
 
-import { requireStaff } from "@/lib/auth";
+import { canOperate, requireStaff } from "@/lib/auth";
 import { signOut } from "@/app/login/actions";
 
 import { RealtimeRefresh } from "./realtime-refresh";
 
-// Routes are fixed at six -- spec/03-screens.md says resist adding a seventh.
-// The ones not yet built are added in their own phases.
+// operatorOnly links are hidden from TAs, who have no access to the floor,
+// printers, inventory, or reports. Jobs and Owners are for all staff.
 const NAV = [
-  { href: "/", label: "Floor" },
-  { href: "/jobs", label: "Jobs" },
-  { href: "/printers", label: "Printers" },
-  { href: "/inventory", label: "Inventory" },
-  { href: "/owners", label: "Owners" },
-  { href: "/reports", label: "Reports" },
+  { href: "/", label: "Floor", operatorOnly: true },
+  { href: "/jobs", label: "Jobs", operatorOnly: false },
+  { href: "/printers", label: "Printers", operatorOnly: true },
+  { href: "/inventory", label: "Inventory", operatorOnly: true },
+  { href: "/owners", label: "Owners", operatorOnly: false },
+  { href: "/reports", label: "Reports", operatorOnly: true },
 ] as const;
 
 export default async function AppLayout({
@@ -22,17 +22,20 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const staff = await requireStaff();
+  const operator = canOperate(staff);
+  const nav = NAV.filter((item) => operator || !item.operatorOnly);
+  const home = operator ? "/" : "/jobs";
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <header className="border-b border-border bg-surface">
         <div className="flex items-center gap-6 px-6 py-3">
-          <Link href="/" className="text-lg font-semibold tracking-tight">
+          <Link href={home} className="text-lg font-semibold tracking-tight">
             Spool
           </Link>
 
           <nav className="flex items-center gap-1">
-            {NAV.map((item) => (
+            {nav.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -46,7 +49,11 @@ export default async function AppLayout({
           <div className="ml-auto flex items-center gap-3">
             <span className="text-sm text-muted">
               {staff.full_name}
-              {staff.role === "admin" ? " · admin" : ""}
+              {staff.role === "admin"
+                ? " · admin"
+                : staff.role === "operator"
+                  ? " · operator"
+                  : " · TA"}
             </span>
             <form action={signOut}>
               <button

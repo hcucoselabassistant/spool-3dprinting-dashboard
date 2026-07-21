@@ -29,15 +29,44 @@ export function JobActions({
   printers,
   spools,
   liveAttemptId,
+  canOperate,
+  isOwn,
 }: {
   job: JobListItem;
   printers: PrinterOption[];
   spools: ViableSpool[];
   liveAttemptId: string | null;
+  canOperate: boolean;
+  isOwn: boolean;
 }) {
   const [modal, setModal] = useState<null | "start" | "finish" | "ready" | "cancel">(
     null,
   );
+
+  const cancelable = ["submitted", "queued", "post_processing"].includes(
+    job.status,
+  );
+
+  // A TA gets no floor controls. The one action they have is cancelling a job
+  // they submitted, while it is still cancelable.
+  if (!canOperate) {
+    if (isOwn && cancelable) {
+      return (
+        <div className="flex items-center justify-end">
+          <button
+            onClick={() => setModal("cancel")}
+            className="rounded-md border border-border px-3 py-1.5 text-sm text-muted hover:text-status-failed"
+          >
+            Cancel
+          </button>
+          {modal === "cancel" ? (
+            <CancelModal job={job} onClose={() => setModal(null)} />
+          ) : null}
+        </div>
+      );
+    }
+    return null;
+  }
 
   return (
     <div className="flex items-center justify-end gap-2">

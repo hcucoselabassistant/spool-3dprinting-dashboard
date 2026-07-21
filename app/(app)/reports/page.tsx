@@ -1,4 +1,4 @@
-import { requireStaff } from "@/lib/auth";
+import { requireOperator } from "@/lib/auth";
 import { formatCents, formatGrams } from "@/lib/format";
 import { getCostReport, getReliability } from "@/lib/queries/reports";
 import type { CostRow } from "@/lib/queries/reports";
@@ -13,7 +13,8 @@ function monthLabel(month: string): string {
 }
 
 export default async function ReportsPage() {
-  await requireStaff();
+  // Reports cover printers and cost -- operator/admin only.
+  await requireOperator();
 
   const [months, reliability] = await Promise.all([
     getCostReport(),

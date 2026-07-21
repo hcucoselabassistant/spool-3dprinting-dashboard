@@ -5,9 +5,27 @@ is the always-loaded summary.
 
 ## What this is
 
-An internal dashboard used by ~6 teaching assistants and 2 administrators to run
-a university 3D print farm of roughly 16 printers. It is not public-facing and
+An internal dashboard used by teaching assistants and administrators to run a
+university 3D print farm of roughly 16 printers. It is not public-facing and
 never will be. Students do not log in — they are records, not users.
+
+## Roles
+
+Three, in `user_role`. Least privilege; new accounts default to `ta`.
+
+- **admin** — everything, including creating accounts and setting roles.
+- **operator** — everything except account management: the floor, printers,
+  inventory, owners, and full control of every job. "admin minus accounts."
+- **ta** — creates jobs and owners; reads every job but edits (cancels) only
+  their own; **no** access to the floor, printers, inventory, or reports, and
+  cannot see other staff records.
+
+RLS in `20260721150600_three_roles.sql` is the real boundary. Server Actions
+re-check the role only so a denied action returns a sentence instead of a silent
+zero-row write, and the nav hides links a role can't use. Helpers:
+`is_admin()`, `can_operate()` (admin or operator), `is_staff()` (any active).
+In TypeScript, express "TA" as `!canOperate(staff)` — never a `"ta"` literal, so
+the check stays correct against the generated enum.
 
 ## The single most important modelling rule
 

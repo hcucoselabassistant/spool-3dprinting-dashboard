@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireStaff } from "@/lib/auth";
+import { canOperate, requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
 
@@ -80,8 +80,10 @@ export async function updateOwner(
   formData: FormData,
 ): Promise<ActionState> {
   const staff = await requireStaff();
-  if (staff.role !== "admin") {
-    return { error: "Only administrators can edit owners." };
+  // A TA can create an owner but not edit an existing one -- editing is
+  // operator/admin, matching the RLS.
+  if (!canOperate(staff)) {
+    return { error: "You do not have permission to edit owners." };
   }
 
   const id = formData.get("id");

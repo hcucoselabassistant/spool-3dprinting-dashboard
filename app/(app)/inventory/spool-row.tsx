@@ -10,10 +10,10 @@ import { EditSpoolForm, RetireSpoolButton } from "./spool-form";
 
 export function SpoolRow({
   spool,
-  isAdmin,
+  canManage,
 }: {
   spool: Spool;
-  isAdmin: boolean;
+  canManage: boolean;
 }) {
   const [editing, setEditing] = useState(false);
 
@@ -69,7 +69,7 @@ export function SpoolRow({
         <span className="text-sm text-muted">
           {formatCostPerGram(spool.cost_cents, spool.total_grams)}
         </span>
-        {isAdmin ? (
+        {canManage ? (
           <div className="flex items-end gap-2">
             {!editing ? (
               <button

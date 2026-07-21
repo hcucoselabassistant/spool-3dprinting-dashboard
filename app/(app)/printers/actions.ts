@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireStaff } from "@/lib/auth";
+import { canOperate, requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
 
@@ -11,16 +11,14 @@ type PrinterState = Database["public"]["Enums"]["printer_state"];
 export type ActionState = { error: string | null; ok?: boolean };
 
 /**
- * RLS is the actual boundary -- admin_all_printer and op_update_printer decide
- * what goes through. These checks exist so the operator gets a sentence instead
- * of a silent no-op, since an UPDATE filtered by RLS affects zero rows without
- * raising.
+ * RLS is the actual boundary -- the printer_operate_all policy decides what goes
+ * through. This check exists so a TA gets a sentence instead of a silent no-op,
+ * since an UPDATE filtered by RLS affects zero rows without raising. Printers
+ * and inventory are operator/admin territory; TAs have no access.
  */
-async function requireAdmin(): Promise<string | null> {
+async function requireOperate(): Promise<string | null> {
   const staff = await requireStaff();
-  return staff.role === "admin"
-    ? null
-    : "Only administrators can change the printer fleet.";
+  return canOperate(staff) ? null : "You do not have access to the printer fleet.";
 }
 
 function readInt(value: FormDataEntryValue | null): number | null {
@@ -33,7 +31,7 @@ export async function createPrinter(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const denied = await requireAdmin();
+  const denied = await requireOperate();
   if (denied) return { error: denied };
 
   const name = formData.get("name");
@@ -79,7 +77,7 @@ export async function updatePrinter(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const denied = await requireAdmin();
+  const denied = await requireOperate();
   if (denied) return { error: denied };
 
   const id = formData.get("id");
@@ -125,15 +123,16 @@ export async function updatePrinter(
 }
 
 /**
- * Flagging a printer down is an operator action, not an admin one -- the person
- * who finds a broken machine at 11pm has to be able to stop prints landing on
- * it. Phase 6 adds the maintenance log prompt on the way back to available.
+ * Flag a printer down or return it to service. Operator/admin only -- a TA has
+ * no access to the fleet. Whoever finds a jammed machine can stop prints landing
+ * on it without hunting for an admin.
  */
 export async function setPrinterState(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireStaff();
+  const denied = await requireOperate();
+  if (denied) return { error: denied };
 
   const id = formData.get("id");
   const state = formData.get("state");
@@ -148,11 +147,6 @@ export async function setPrinterState(
       error:
         "A printer becomes 'printing' by starting a print, not by being set.",
     };
-  }
-
-  if (state === "retired") {
-    const denied = await requireAdmin();
-    if (denied) return { error: "Only administrators can retire a printer." };
   }
 
   const supabase = await createClient();
@@ -193,13 +187,15 @@ export async function setPrinterState(
  * service record is what resets hours_since_service, since that view counts
  * attempts after the last logged service.
  *
- * Any active staff can do this: op_write_maint and op_update_printer both allow
- * operators. The whole point is the person at the machine records what they did.
+ * Operator/admin only, like the rest of the fleet. The whole point is the
+ * person at the machine records what they did.
  */
 export async function logMaintenance(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const denied = await requireOperate();
+  if (denied) return { error: denied };
   const staff = await requireStaff();
 
   const printerId = formData.get("printer_id");

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { requireStaff } from "@/lib/auth";
+import { requireOperator } from "@/lib/auth";
 import { LOW_SPOOL_GRAMS } from "@/lib/config";
 import { formatGrams } from "@/lib/format";
 import { getSpools } from "@/lib/queries/spools";
@@ -15,12 +15,13 @@ export default async function InventoryPage({
 }: {
   searchParams: Promise<{ retired?: string }>;
 }) {
-  const staff = await requireStaff();
+  // Operator/admin only. A TA has no inventory access.
+  await requireOperator();
   const params = await searchParams;
   const showRetired = params.retired === "1";
 
   const groups = await getSpools(showRetired);
-  const isAdmin = staff.role === "admin";
+  const canManage = true;
 
   const all = groups.flatMap((g) => g.spools);
   const low = all.filter((s) => !s.retired && s.remaining_grams <= LOW_SPOOL_GRAMS);
@@ -40,7 +41,7 @@ export default async function InventoryPage({
               : ""}
           </p>
         </div>
-        {isAdmin ? <AddSpoolForm /> : null}
+        {canManage ? <AddSpoolForm /> : null}
       </div>
 
       <div className="mb-4">
@@ -54,9 +55,7 @@ export default async function InventoryPage({
 
       {groups.length === 0 ? (
         <p className="rounded-lg border border-border bg-surface p-8 text-center text-muted">
-          {isAdmin
-            ? "No spools yet. Add the filament you actually have on the shelf."
-            : "No spools yet. An administrator needs to add them."}
+          No spools yet. Add the filament you actually have on the shelf.
         </p>
       ) : (
         <div className="flex flex-col gap-8">
@@ -67,7 +66,7 @@ export default async function InventoryPage({
               </h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {group.spools.map((spool) => (
-                  <SpoolRow key={spool.id} spool={spool} isAdmin={isAdmin} />
+                  <SpoolRow key={spool.id} spool={spool} canManage={canManage} />
                 ))}
               </div>
             </section>

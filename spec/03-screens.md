@@ -13,8 +13,14 @@ eighth.
 /reports              Monthly filament cost and printer reliability
 ```
 
-Admin-only: `/inventory` and `/owners` for writes, plus a `/settings/users`
-page for seeding staff accounts.
+Access by role (see CLAUDE.md):
+
+- **TA** sees only `/jobs` and `/owners`. They create jobs and owners, read all
+  jobs but edit only their own, and can create but not edit owners. The floor,
+  `/printers`, `/inventory`, and `/reports` are hidden and server-guarded.
+- **operator** and **admin** see everything. Managing printers, inventory, and
+  owners is operator-level; only accounts (`/settings/users`, not yet built) are
+  admin-only.
 
 ## `/` — Floor
 

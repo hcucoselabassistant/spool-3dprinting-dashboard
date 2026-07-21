@@ -42,7 +42,29 @@ export const requireStaff = cache(async (): Promise<Staff> => {
   return staff;
 });
 
+/** admin or operator -- everything except (for operators) account management. */
+export function canOperate(staff: Staff): boolean {
+  return staff.role === "admin" || staff.role === "operator";
+}
+
 export async function isAdmin(): Promise<boolean> {
   const staff = await requireStaff();
   return staff.role === "admin";
 }
+
+/**
+ * Gate an operator-only screen. A TA who reaches one is sent to their home at
+ * /jobs rather than shown an empty page. RLS still enforces the boundary; this
+ * is the friendly door.
+ */
+export const requireOperator = cache(async (): Promise<Staff> => {
+  const staff = await requireStaff();
+  if (!canOperate(staff)) redirect("/jobs");
+  return staff;
+});
+
+export const requireAdmin = cache(async (): Promise<Staff> => {
+  const staff = await requireStaff();
+  if (staff.role !== "admin") redirect("/jobs");
+  return staff;
+});

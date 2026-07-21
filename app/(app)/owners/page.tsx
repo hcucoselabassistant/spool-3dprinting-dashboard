@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { requireStaff } from "@/lib/auth";
+import { canOperate, requireStaff } from "@/lib/auth";
 import { getOwners } from "@/lib/queries/owners";
 
 import { InlineCreateOwner, OwnerRow } from "./owner-table";
@@ -17,7 +17,9 @@ export default async function OwnersPage({
   const showInactive = params.inactive === "1";
 
   const owners = await getOwners(showInactive);
-  const isAdmin = staff.role === "admin";
+  // TAs can view owners and create them, but editing an existing owner is
+  // operator/admin.
+  const canEdit = canOperate(staff);
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -56,7 +58,7 @@ export default async function OwnersPage({
             <div className="col-span-2" />
           </div>
           {owners.map((owner) => (
-            <OwnerRow key={owner.id} owner={owner} isAdmin={isAdmin} />
+            <OwnerRow key={owner.id} owner={owner} canEdit={canEdit} />
           ))}
         </div>
       )}

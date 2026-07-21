@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireStaff } from "@/lib/auth";
+import { canOperate, requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
 
@@ -18,6 +18,17 @@ export type ActionState = {
 };
 
 const OK: ActionState = { error: null, ok: true };
+
+/**
+ * The whole status machine -- approve, start, finish, ready, collect -- is
+ * operator/admin work. A TA has no part in running the floor.
+ */
+async function requireOperator(): Promise<string | null> {
+  const staff = await requireStaff();
+  return canOperate(staff)
+    ? null
+    : "Only operators can run jobs through the floor.";
+}
 
 function revalidateLoop() {
   revalidatePath("/jobs");
@@ -40,6 +51,8 @@ export async function approveJob(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const denied = await requireOperator();
+  if (denied) return { error: denied };
   const staff = await requireStaff();
   const id = formData.get("job_id");
   const override = formData.get("override") === "true";
@@ -109,6 +122,8 @@ export async function startPrint(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  const denied = await requireOperator();
+  if (denied) return { error: denied };
   const staff = await requireStaff();
 
   const jobId = formData.get("job_id");
@@ -166,7 +181,8 @@ export async function finishAttempt(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireStaff();
+  const denied = await requireOperator();
+  if (denied) return { error: denied };
 
   const attemptId = formData.get("attempt_id");
   const outcome = formData.get("outcome");
@@ -222,7 +238,8 @@ export async function markReady(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireStaff();
+  const denied = await requireOperator();
+  if (denied) return { error: denied };
 
   const id = formData.get("job_id");
   const shelf = formData.get("shelf_location");
@@ -251,7 +268,8 @@ export async function markCollected(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireStaff();
+  const denied = await requireOperator();
+  if (denied) return { error: denied };
   const id = formData.get("job_id");
   if (typeof id !== "string") return { error: "Missing job id." };
 
@@ -272,12 +290,15 @@ export async function markCollected(
  * never from printing, where you cancel the attempt instead (which returns the
  * job to queued). The reason is appended to notes; the schema has no dedicated
  * column for it and this keeps the record without a migration.
+ *
+ * Operators cancel any job; a TA may cancel one they submitted. This is the one
+ * status change a TA is allowed, and it matches the job_update RLS policy.
  */
 export async function cancelJob(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireStaff();
+  const staff = await requireStaff();
 
   const id = formData.get("job_id");
   const reason = formData.get("reason");
@@ -290,11 +311,14 @@ export async function cancelJob(
   const supabase = await createClient();
   const { data: job, error: readError } = await supabase
     .from("job")
-    .select("status, notes")
+    .select("status, notes, submitted_by")
     .eq("id", id)
     .single();
 
   if (readError) return { error: readError.message };
+  if (!canOperate(staff) && job.submitted_by !== staff.id) {
+    return { error: "You can only cancel jobs you submitted." };
+  }
   if (!["submitted", "queued", "post_processing"].includes(job.status)) {
     return {
       error:
