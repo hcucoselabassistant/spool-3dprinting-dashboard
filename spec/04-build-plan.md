@@ -73,7 +73,7 @@ merge have not yet seen against live data.
 
 ---
 
-## Phase 4 — The core loop
+## Phase 4 — The core loop ✅ built
 
 > Read spec/02-workflows.md in full. Build the start-print flow and the
 > finish-print modal. Start-print takes a queued job, an available printer, and
@@ -87,6 +87,12 @@ ready_for_pickup → collected, and a deliberate failure returns it to queued wi
 the spool correctly decremented.
 
 This is the phase that matters. Test the failure path manually before moving on.
+
+Built and the happy path exercised. The failure path — deliberately fail a
+print, confirm the job returns to `queued` and the spool decremented by the
+grams entered — has NOT been confirmed against live data yet. That is the one
+behaviour the whole job/attempt split exists for, so it is the gate on calling
+this phase done.
 
 ---
 
