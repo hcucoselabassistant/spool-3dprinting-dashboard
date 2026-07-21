@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 
 import { Field, FormError, SubmitButton, TextInput } from "@/components/form";
+import { createClient } from "@/lib/supabase/client";
 
 import { createJob, type ActionState } from "./actions";
 import { OwnerPicker, type OwnerOption } from "./owner-picker";
@@ -10,10 +11,53 @@ import { OwnerPicker, type OwnerOption } from "./owner-picker";
 const INITIAL: ActionState = { error: null };
 
 const MATERIALS = ["PLA", "PETG", "ABS", "TPU"];
+const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
+
+/**
+ * Uploads the chosen file straight to Storage, then calls the server action
+ * with only its path. Keeps the multi-megabyte binary out of the Server Action
+ * body, which Vercel caps at 4.5 MB. Runs client-side because it needs the
+ * browser Supabase client; useActionState accepts any async reducer, including
+ * this one.
+ */
+async function submitJob(
+  prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const file = formData.get("file");
+  formData.delete("file"); // never send the binary to the action
+
+  let uploadedPath: string | null = null;
+
+  if (file instanceof File && file.size > 0) {
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return { error: "That file is over the 200 MB limit." };
+    }
+    const supabase = createClient();
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    uploadedPath = `${crypto.randomUUID()}/${safeName}`;
+
+    const { error } = await supabase.storage
+      .from("job-files")
+      .upload(uploadedPath, file, { upsert: false });
+
+    if (error) return { error: `Upload failed: ${error.message}` };
+    formData.set("file_path", uploadedPath);
+  }
+
+  const result = await createJob(prev, formData);
+
+  // The row never landed but the file is already in Storage -- remove it.
+  if (result.orphanedPath) {
+    await createClient().storage.from("job-files").remove([result.orphanedPath]);
+  }
+
+  return result;
+}
 
 export function NewJobForm({ owners }: { owners: OwnerOption[] }) {
   const [open, setOpen] = useState(false);
-  const [state, action] = useActionState(createJob, INITIAL);
+  const [state, action] = useActionState(submitJob, INITIAL);
 
   if (!open) {
     return (

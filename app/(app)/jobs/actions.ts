@@ -12,9 +12,13 @@ type OwnerKind = Database["public"]["Enums"]["owner_kind"];
  * submittedId is the id of the job just created. The form keys itself on it so
  * a success remounts a blank form -- the desk case is several jobs in a row.
  */
-export type ActionState = { error: string | null; submittedId?: string };
-
-const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
+export type ActionState = {
+  error: string | null;
+  submittedId?: string;
+  /** Set when the insert failed after a file was already uploaded, so the
+   *  client can delete the orphan. */
+  orphanedPath?: string;
+};
 
 function readInt(value: FormDataEntryValue | null): number | null {
   if (typeof value !== "string" || value.trim() === "") return null;
@@ -47,6 +51,11 @@ function isOwnerKind(value: FormDataEntryValue | null): value is OwnerKind {
  * Estimates are the slicer's numbers and are required: the queue is scheduled
  * against them before anything starts printing, and guard_spool_sufficient
  * refuses an attempt whose spool cannot cover est_grams.
+ *
+ * The file is NOT in this payload. It is uploaded from the browser straight to
+ * Storage before this runs, and only its path arrives here as file_path. Vercel
+ * caps a Server Action body at 4.5 MB, so a .gcode routed through here would
+ * fail in production; the browser talks to Storage directly instead.
  */
 export async function createJob(
   _prev: ActionState,
@@ -76,28 +85,7 @@ export async function createJob(
   const ownerId = await resolveOwner(formData, supabase);
   if ("error" in ownerId) return { error: ownerId.error };
 
-  // Upload before insert. A failed upload leaves no job, which is recoverable;
-  // the reverse would leave a job pointing at a file that is not there.
-  const file = formData.get("file");
-  let filePath: string | null = null;
-
-  if (file instanceof File && file.size > 0) {
-    if (file.size > MAX_UPLOAD_BYTES) {
-      return { error: "That file is over the 200 MB limit." };
-    }
-
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const path = `${ownerId.id}/${crypto.randomUUID()}-${safeName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("job-files")
-      .upload(path, file, { upsert: false });
-
-    if (uploadError) {
-      return { error: `Upload failed: ${uploadError.message}` };
-    }
-    filePath = path;
-  }
+  const filePath = asOptionalText(formData.get("file_path"));
 
   const { data, error } = await supabase
     .from("job")
@@ -120,11 +108,9 @@ export async function createJob(
     .single();
 
   if (error) {
-    // Don't leave the uploaded file orphaned if the row never landed.
-    if (filePath) {
-      await supabase.storage.from("job-files").remove([filePath]);
-    }
-    return { error: error.message };
+    // The upload already happened client-side; hand the path back so the
+    // browser can remove the now-orphaned file.
+    return { error: error.message, orphanedPath: filePath ?? undefined };
   }
 
   revalidatePath("/jobs");
