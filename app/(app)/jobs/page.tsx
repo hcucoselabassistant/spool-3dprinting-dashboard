@@ -1,9 +1,15 @@
 import { StatusPill } from "@/components/status-pill";
 import { requireStaff } from "@/lib/auth";
 import { formatDate, formatGrams, formatMinutes } from "@/lib/format";
+import {
+  getAvailablePrinters,
+  getLiveAttemptsByJob,
+  getViableSpools,
+} from "@/lib/queries/core";
 import { getRecentJobs } from "@/lib/queries/jobs";
 import { getOwnerOptions } from "@/lib/queries/owners";
 
+import { JobActions } from "./job-actions";
 import { NewJobForm } from "./job-form";
 
 export const metadata = { title: "Jobs · Spool" };
@@ -11,9 +17,12 @@ export const metadata = { title: "Jobs · Spool" };
 export default async function JobsPage() {
   await requireStaff();
 
-  const [owners, jobs] = await Promise.all([
+  const [owners, jobs, printers, spools, liveAttempts] = await Promise.all([
     getOwnerOptions(),
     getRecentJobs(),
+    getAvailablePrinters(),
+    getViableSpools(),
+    getLiveAttemptsByJob(),
   ]);
 
   return (
@@ -39,21 +48,31 @@ export default async function JobsPage() {
               key={job.id}
               className="grid grid-cols-12 items-center gap-3 border-b border-border px-3 py-3 text-sm last:border-b-0"
             >
-              <div className="col-span-4">
+              <div className="col-span-3">
                 <p className="font-medium">{job.title}</p>
                 <p className="text-muted">
                   {job.owner?.display_name ?? "unknown owner"}
                 </p>
               </div>
-              <div className="col-span-2 text-muted">{job.material}</div>
-              <div className="col-span-3 text-muted">
-                {formatMinutes(job.est_minutes)} · {formatGrams(job.est_grams)}
+              <div className="col-span-2 text-muted">
+                {job.material} · {formatGrams(job.est_grams)}
               </div>
               <div className="col-span-2 text-muted">
+                {formatMinutes(job.est_minutes)}
+              </div>
+              <div className="col-span-1 text-muted">
                 {job.needed_by ? formatDate(job.needed_by) : "—"}
               </div>
-              <div className="col-span-1 text-right">
+              <div className="col-span-1">
                 <StatusPill status={job.status} />
+              </div>
+              <div className="col-span-3">
+                <JobActions
+                  job={job}
+                  printers={printers}
+                  spools={spools}
+                  liveAttemptId={liveAttempts.get(job.id) ?? null}
+                />
               </div>
             </div>
           ))}
