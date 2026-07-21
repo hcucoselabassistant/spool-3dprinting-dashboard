@@ -414,10 +414,8 @@ export type Database = {
       }
     }
     Functions: {
-      current_role_is: {
-        Args: { required: Database["public"]["Enums"]["user_role"] }
-        Returns: boolean
-      }
+      can_operate: { Args: never; Returns: boolean }
+      is_admin: { Args: never; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }
     }
     Enums: {
@@ -441,7 +439,7 @@ export type Database = {
         | "cancelled"
       owner_kind: "student" | "course" | "faculty" | "department"
       printer_state: "available" | "printing" | "maintenance" | "retired"
-      user_role: "admin" | "operator"
+      user_role: "admin" | "operator" | "ta"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -591,7 +589,7 @@ export const Constants = {
       ],
       owner_kind: ["student", "course", "faculty", "department"],
       printer_state: ["available", "printing", "maintenance", "retired"],
-      user_role: ["admin", "operator"],
+      user_role: ["admin", "operator", "ta"],
     },
   },
 } as const
