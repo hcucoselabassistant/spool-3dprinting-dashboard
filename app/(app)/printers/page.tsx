@@ -1,5 +1,5 @@
 import { requireStaff } from "@/lib/auth";
-import { getFleet } from "@/lib/queries/printers";
+import { getFleet, getMaintenanceLogs } from "@/lib/queries/printers";
 
 import { AddPrinterForm } from "./printer-form";
 import { PrinterCard } from "./printer-card";
@@ -8,7 +8,10 @@ export const metadata = { title: "Printers · Spool" };
 
 export default async function PrintersPage() {
   const staff = await requireStaff();
-  const fleet = await getFleet();
+  const [fleet, maintenance] = await Promise.all([
+    getFleet(),
+    getMaintenanceLogs(),
+  ]);
 
   const isAdmin = staff.role === "admin";
   const due = fleet.filter(
@@ -40,7 +43,12 @@ export default async function PrintersPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {fleet.map((printer) => (
-            <PrinterCard key={printer.id} printer={printer} isAdmin={isAdmin} />
+            <PrinterCard
+              key={printer.id}
+              printer={printer}
+              isAdmin={isAdmin}
+              maintenance={maintenance.get(printer.id) ?? []}
+            />
           ))}
         </div>
       )}

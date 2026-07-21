@@ -1,12 +1,14 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 
 import { Field, FormError, Select, SubmitButton, TextInput } from "@/components/form";
+import { Modal } from "@/components/modal";
 import type { Printer } from "@/lib/queries/printers";
 
 import {
   createPrinter,
+  logMaintenance,
   setPrinterState,
   updatePrinter,
   type ActionState,
@@ -128,15 +130,42 @@ function PrinterFields({ printer }: { printer?: Printer }) {
 /**
  * State changes are operator-level on purpose: whoever finds a jammed machine
  * has to be able to stop prints landing on it without finding an admin.
+ *
+ * Returning from maintenance is special: it does not go through the plain state
+ * setter, because coming back into service must record what was done. That is
+ * the maintenance-log prompt.
  */
 export function PrinterStateControl({
   printer,
   canRetire,
+  hoursSinceService,
 }: {
   printer: Printer;
   canRetire: boolean;
+  hoursSinceService: number;
 }) {
   const [state, action] = useActionState(setPrinterState, INITIAL);
+  const [returning, setReturning] = useState(false);
+
+  if (printer.state === "maintenance") {
+    return (
+      <>
+        <button
+          onClick={() => setReturning(true)}
+          className="rounded-md bg-status-ready px-3 py-2 text-sm font-medium text-background"
+        >
+          Return to service
+        </button>
+        {returning ? (
+          <ReturnToServiceModal
+            printer={printer}
+            hoursSinceService={hoursSinceService}
+            onClose={() => setReturning(false)}
+          />
+        ) : null}
+      </>
+    );
+  }
 
   return (
     <form action={action} className="flex flex-col gap-2">
@@ -151,5 +180,64 @@ export function PrinterStateControl({
       </div>
       <FormError message={state.error} />
     </form>
+  );
+}
+
+function ReturnToServiceModal({
+  printer,
+  hoursSinceService,
+  onClose,
+}: {
+  printer: Printer;
+  hoursSinceService: number;
+  onClose: () => void;
+}) {
+  const [state, action] = useActionState(logMaintenance, INITIAL);
+
+  useEffect(() => {
+    if (state.ok) onClose();
+  }, [state.ok, onClose]);
+
+  return (
+    <Modal title={`Return ${printer.name} to service`} onClose={onClose}>
+      <form action={action} className="flex flex-col gap-4">
+        <input type="hidden" name="printer_id" value={printer.id} />
+        <p className="text-sm text-muted">
+          Record what was done. This clears the service-hours counter.
+        </p>
+
+        <Field label="What was done?">
+          <TextInput
+            name="action"
+            placeholder="e.g. cleared nozzle jam, re-levelled bed"
+            autoFocus
+            required
+          />
+        </Field>
+
+        <Field
+          label="Machine hours at service"
+          hint="Pre-filled from the counter. Adjust if you know better."
+        >
+          <TextInput
+            name="hours_at_service"
+            type="number"
+            step="0.1"
+            min="0"
+            defaultValue={Math.round(hoursSinceService)}
+          />
+        </Field>
+
+        <Field label="Notes" hint="Optional">
+          <TextInput name="notes" />
+        </Field>
+
+        <FormError message={state.error} />
+
+        <div className="flex justify-end">
+          <SubmitButton>Log and return to service</SubmitButton>
+        </div>
+      </form>
+    </Modal>
   );
 }

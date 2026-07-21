@@ -80,3 +80,44 @@ export function serviceRatio(printer: FleetPrinter): number {
 export function isServiceDue(printer: FleetPrinter): boolean {
   return serviceRatio(printer) >= 1;
 }
+
+export type MaintenanceEntry = {
+  id: string;
+  performedAt: string;
+  action: string;
+  hoursAtService: number | null;
+  notes: string | null;
+  performedByName: string;
+};
+
+/** Recent maintenance entries per printer, newest first. */
+export async function getMaintenanceLogs(
+  limitPerPrinter = 5,
+): Promise<Map<string, MaintenanceEntry[]>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("maintenance_log")
+    .select(
+      "id, printer_id, performed_at, action, hours_at_service, notes, performer:app_user!maintenance_log_performed_by_fkey(full_name)",
+    )
+    .order("performed_at", { ascending: false });
+
+  if (error) throw error;
+
+  const byPrinter = new Map<string, MaintenanceEntry[]>();
+  for (const row of data ?? []) {
+    const list = byPrinter.get(row.printer_id) ?? [];
+    if (list.length < limitPerPrinter) {
+      list.push({
+        id: row.id,
+        performedAt: row.performed_at,
+        action: row.action,
+        hoursAtService: row.hours_at_service,
+        notes: row.notes,
+        performedByName: row.performer?.full_name ?? "unknown",
+      });
+    }
+    byPrinter.set(row.printer_id, list);
+  }
+  return byPrinter;
+}

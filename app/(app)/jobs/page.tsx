@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { StatusPill } from "@/components/status-pill";
 import { requireStaff } from "@/lib/auth";
 import { formatDate, formatGrams, formatMinutes } from "@/lib/format";
@@ -6,40 +8,56 @@ import {
   getLiveAttemptsByJob,
   getViableSpools,
 } from "@/lib/queries/core";
-import { getRecentJobs } from "@/lib/queries/jobs";
+import { getJobs, getPrinterOptions, type JobFilters as Filters } from "@/lib/queries/jobs";
 import { getOwnerOptions } from "@/lib/queries/owners";
+import type { Database } from "@/lib/database.types";
 
 import { JobActions } from "./job-actions";
+import { JobFilters } from "./job-filters";
 import { NewJobForm } from "./job-form";
 
 export const metadata = { title: "Jobs · Spool" };
 
-export default async function JobsPage() {
-  await requireStaff();
+type JobStatus = Database["public"]["Enums"]["job_status"];
 
-  const [owners, jobs, printers, spools, liveAttempts] = await Promise.all([
-    getOwnerOptions(),
-    getRecentJobs(),
-    getAvailablePrinters(),
-    getViableSpools(),
-    getLiveAttemptsByJob(),
-  ]);
+export default async function JobsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; owner?: string; printer?: string }>;
+}) {
+  await requireStaff();
+  const sp = await searchParams;
+
+  const filters: Filters = {
+    status: isStatus(sp.status) ? sp.status : undefined,
+    ownerId: sp.owner || undefined,
+    printerId: sp.printer || undefined,
+  };
+
+  const [owners, printerOptions, jobs, printers, spools, liveAttempts] =
+    await Promise.all([
+      getOwnerOptions(),
+      getPrinterOptions(),
+      getJobs(filters),
+      getAvailablePrinters(),
+      getViableSpools(),
+      getLiveAttemptsByJob(),
+    ]);
 
   return (
     <div className="mx-auto max-w-6xl">
       <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Jobs</h1>
-          <p className="mt-1 text-sm text-muted">
-            Filtering by status, owner, and printer arrives in Phase 6.
-          </p>
-        </div>
+        <h1 className="text-2xl font-semibold tracking-tight">Jobs</h1>
         <NewJobForm owners={owners} />
+      </div>
+
+      <div className="mb-4">
+        <JobFilters owners={owners} printers={printerOptions} />
       </div>
 
       {jobs.length === 0 ? (
         <p className="rounded-lg border border-border bg-surface p-8 text-center text-muted">
-          No jobs yet.
+          No jobs match.
         </p>
       ) : (
         <div className="overflow-hidden rounded-lg border border-border bg-surface">
@@ -49,7 +67,12 @@ export default async function JobsPage() {
               className="grid grid-cols-12 items-center gap-3 border-b border-border px-3 py-3 text-sm last:border-b-0"
             >
               <div className="col-span-3">
-                <p className="font-medium">{job.title}</p>
+                <Link
+                  href={`/jobs/${job.id}`}
+                  className="font-medium hover:text-status-printing hover:underline"
+                >
+                  {job.title}
+                </Link>
                 <p className="text-muted">
                   {job.owner?.display_name ?? "unknown owner"}
                 </p>
@@ -79,5 +102,17 @@ export default async function JobsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function isStatus(value: string | undefined): value is JobStatus {
+  return (
+    value === "submitted" ||
+    value === "queued" ||
+    value === "printing" ||
+    value === "post_processing" ||
+    value === "ready_for_pickup" ||
+    value === "collected" ||
+    value === "cancelled"
   );
 }

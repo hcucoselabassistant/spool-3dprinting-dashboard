@@ -4,19 +4,22 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { StatusPill } from "@/components/status-pill";
-import { formatHours } from "@/lib/format";
-import type { FleetPrinter } from "@/lib/queries/printers";
+import { formatDate, formatHours } from "@/lib/format";
+import type { FleetPrinter, MaintenanceEntry } from "@/lib/queries/printers";
 
 import { EditPrinterForm, PrinterStateControl } from "./printer-form";
 
 export function PrinterCard({
   printer,
   isAdmin,
+  maintenance,
 }: {
   printer: FleetPrinter;
   isAdmin: boolean;
+  maintenance: MaintenanceEntry[];
 }) {
   const [editing, setEditing] = useState(false);
+  const [showLog, setShowLog] = useState(false);
 
   const ratio =
     printer.service_interval_hours > 0
@@ -83,7 +86,11 @@ export function PrinterCard({
       </div>
 
       <div className="mt-4 flex items-end justify-between gap-2">
-        <PrinterStateControl printer={printer} canRetire={isAdmin} />
+        <PrinterStateControl
+          printer={printer}
+          canRetire={isAdmin}
+          hoursSinceService={printer.hoursSinceService}
+        />
         {isAdmin && !editing ? (
           <button
             onClick={() => setEditing(true)}
@@ -97,6 +104,34 @@ export function PrinterCard({
       {editing ? (
         <EditPrinterForm printer={printer} onDone={() => setEditing(false)} />
       ) : null}
+
+      <div className="mt-3 border-t border-border pt-3">
+        <button
+          onClick={() => setShowLog((v) => !v)}
+          className="text-xs text-muted hover:text-foreground"
+        >
+          {showLog ? "Hide" : "Show"} service history ({maintenance.length})
+        </button>
+        {showLog ? (
+          maintenance.length === 0 ? (
+            <p className="mt-2 text-xs text-muted">No service logged yet.</p>
+          ) : (
+            <ul className="mt-2 flex flex-col gap-2">
+              {maintenance.map((entry) => (
+                <li key={entry.id} className="text-xs">
+                  <span className="text-muted">
+                    {formatDate(entry.performedAt)} · {entry.performedByName}
+                  </span>
+                  <p>{entry.action}</p>
+                  {entry.notes ? (
+                    <p className="text-muted">{entry.notes}</p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )
+        ) : null}
+      </div>
     </div>
   );
 }

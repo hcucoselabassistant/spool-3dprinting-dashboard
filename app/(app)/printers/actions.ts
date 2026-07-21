@@ -8,7 +8,7 @@ import type { Database } from "@/lib/database.types";
 
 type PrinterState = Database["public"]["Enums"]["printer_state"];
 
-export type ActionState = { error: string | null };
+export type ActionState = { error: string | null; ok?: boolean };
 
 /**
  * RLS is the actual boundary -- admin_all_printer and op_update_printer decide
@@ -185,6 +185,72 @@ export async function setPrinterState(
 
   revalidatePath("/printers");
   return { error: null };
+}
+
+/**
+ * Log a service event, then return the printer to service. This is the prompt
+ * that fires when an operator brings a machine back from maintenance -- the
+ * service record is what resets hours_since_service, since that view counts
+ * attempts after the last logged service.
+ *
+ * Any active staff can do this: op_write_maint and op_update_printer both allow
+ * operators. The whole point is the person at the machine records what they did.
+ */
+export async function logMaintenance(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const staff = await requireStaff();
+
+  const printerId = formData.get("printer_id");
+  const action = formData.get("action");
+  const hoursRaw = formData.get("hours_at_service");
+  const notes = asOptionalText(formData.get("notes"));
+
+  if (typeof printerId !== "string") return { error: "Missing printer id." };
+  if (typeof action !== "string" || action.trim() === "") {
+    return { error: "Describe what was done — this is the service record." };
+  }
+
+  const hours =
+    typeof hoursRaw === "string" && hoursRaw.trim() !== ""
+      ? Number(hoursRaw)
+      : null;
+  if (hours !== null && (!Number.isFinite(hours) || hours < 0)) {
+    return { error: "Hours at service must be a positive number, or blank." };
+  }
+
+  const supabase = await createClient();
+
+  const { error: logError } = await supabase.from("maintenance_log").insert({
+    printer_id: printerId,
+    performed_by: staff.id,
+    action: action.trim(),
+    hours_at_service: hours,
+    notes,
+  });
+
+  if (logError) return { error: logError.message };
+
+  // Return to service only from maintenance -- never resurrect a retired
+  // machine as a side effect of logging service on it.
+  const { data: printer } = await supabase
+    .from("printer")
+    .select("state")
+    .eq("id", printerId)
+    .single();
+
+  if (printer?.state === "maintenance") {
+    const { error: stateError } = await supabase
+      .from("printer")
+      .update({ state: "available" })
+      .eq("id", printerId);
+    if (stateError) return { error: stateError.message };
+  }
+
+  revalidatePath("/printers");
+  revalidatePath("/");
+  return { error: null, ok: true };
 }
 
 function isPrinterState(value: FormDataEntryValue | null): value is PrinterState {
