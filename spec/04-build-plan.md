@@ -9,16 +9,29 @@ The prompt under each phase is meant to be pasted verbatim.
 
 ---
 
-## Phase 1 — Schema and auth
+## Phase 1 — Schema and auth ✅ code complete
 
 > Read CLAUDE.md and spec/01-data-model.md. Apply the migrations in
 > supabase/migrations/ to the linked project, generate TypeScript types into
 > lib/database.types.ts, and set up Supabase auth with @supabase/ssr including
-> middleware that redirects unauthenticated users to /login. Build only a login
-> page and an empty authenticated shell layout. Do not build any feature screens.
+> a root proxy.ts that redirects unauthenticated users to /login. Build only a
+> login page and an empty authenticated shell layout. Do not build any feature
+> screens.
 
 **Done when:** you can log in, `app_user` has your admin row, `npm run build`
 passes, and a logged-out request to `/` redirects.
+
+The code is written and the build passes. Two steps need a live project and are
+outstanding — do them before Phase 2:
+
+1. `npx supabase link --project-ref <ref>` then `npm run db:push`. The
+   migrations have never been executed against a real Postgres, so expect to
+   fix a syntax error or two on first push.
+2. `npm run db:types` to replace the `app_user`-only placeholder in
+   `lib/database.types.ts`.
+
+Then create your account, insert your `app_user` admin row (see README), and
+confirm the redirect behaviour.
 
 ---
 
@@ -78,6 +91,10 @@ This is the phase that matters. Test the failure path manually before moving on.
 
 **Done when:** the dashboard reflects a print started in another browser window
 within a second, without a refresh.
+
+`attempt` and `job` are already in the `supabase_realtime` publication with
+replica identity full — see the realtime migration. Subscribe with the browser
+client in `lib/supabase/client.ts`; realtime still respects RLS.
 
 ---
 

@@ -21,9 +21,15 @@ run, reject that change.
 ## Conventions
 
 - TypeScript strict mode. No `any`. Database types are generated, not hand-written:
-  `npx supabase gen types typescript --linked > lib/database.types.ts`
+  `npm run db:types`
+- This is **Next.js 16**. The `middleware.ts` convention is gone — it is `proxy.ts`
+  at the repo root, exporting `proxy()`. Version-exact docs are bundled at
+  `node_modules/next/dist/docs/`; read them rather than relying on recall.
 - Server Components by default. Add `"use client"` only for genuine interactivity
   (drag, form state, live subscriptions).
+- Authentication is checked in `lib/auth.ts` (`requireStaff`), next to the data.
+  `proxy.ts` only does an optimistic cookie check and a redirect — never put an
+  authorization decision there alone, it runs on every prefetch.
 - All database access goes through `lib/queries/*.ts`. No inline Supabase calls
   inside components.
 - Mutations are Server Actions in `app/**/actions.ts`, not API routes.
@@ -47,13 +53,22 @@ Do not build these unless explicitly asked:
 
 ## Things that will look like bugs but are not
 
-- `job.status` is derived from attempts by triggers, not set directly by the UI.
-  If you find yourself writing `update job set status = ...` from application
-  code, you are probably working around the state machine — reread
-  `spec/02-workflows.md`.
+- The **attempt-driven** `job.status` transitions are set by triggers, never by
+  the UI: `queued → printing`, `printing → post_processing`, and
+  `printing → queued` on failure. Writing those from application code
+  desynchronises the printer state.
+
+  The four **operator-driven** transitions are the app's job and are written
+  normally: `submitted → queued` (approve), `post_processing →
+  ready_for_pickup`, `ready_for_pickup → collected`, and `* → cancelled`.
+  See the table in `spec/02-workflows.md` for which is which.
 - `printer.hours_since_service` is a view column, not a stored column.
 - A spool's `remaining_grams` decrements only when an attempt is finalised, and
   it decrements for failed attempts too. That is intentional.
+- The trigger functions are `security definer` on purpose. Without it their
+  cascading writes are filtered by the target table's RLS and silently affect
+  zero rows — an operator would finalise a print and the spool would never
+  decrement. Do not "clean this up".
 
 ## Definition of done for any phase
 
