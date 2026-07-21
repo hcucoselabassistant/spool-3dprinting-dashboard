@@ -23,7 +23,14 @@ export async function signIn(
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    // Deliberately not distinguishing "no such account" from "wrong password".
+    // The client message stays vague on purpose -- it must not distinguish
+    // "no such account" from "wrong password". The real reason goes to the
+    // server log, where only staff running the app can see it.
+    console.error("[auth] sign-in failed:", {
+      code: error.code,
+      status: error.status,
+      message: error.message,
+    });
     return { error: "Those credentials were not accepted." };
   }
 
