@@ -1,6 +1,8 @@
 import Link from "next/link";
 
-import { canOperate, requireStaff } from "@/lib/auth";
+import { redirect } from "next/navigation";
+
+import { canOperate, mustChangePassword, requireStaff } from "@/lib/auth";
 import { signOut } from "@/app/login/actions";
 
 import { RealtimeRefresh } from "./realtime-refresh";
@@ -24,6 +26,13 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const staff = await requireStaff();
+
+  // Force a first-login password change before anything else. /change-password
+  // lives outside this route group, so redirecting there does not loop.
+  if (await mustChangePassword()) {
+    redirect("/change-password");
+  }
+
   const operator = canOperate(staff);
   const isAdmin = staff.role === "admin";
   const nav = NAV.filter(
@@ -61,6 +70,12 @@ export default async function AppLayout({
                   ? " · operator"
                   : " · TA"}
             </span>
+            <Link
+              href="/change-password"
+              className="rounded-md px-3 py-1.5 text-sm text-muted transition-colors hover:bg-surface-raised hover:text-foreground"
+            >
+              Password
+            </Link>
             <form action={signOut}>
               <button
                 type="submit"

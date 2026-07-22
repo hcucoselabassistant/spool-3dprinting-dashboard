@@ -77,7 +77,9 @@ export async function createStaff(
     email: email.trim(),
     password,
     email_confirm: true,
-    user_metadata: { full_name: fullName.trim() },
+    // must_change_password forces the person to set their own password on first
+    // login -- the admin-set one is temporary. Cleared when they change it.
+    user_metadata: { full_name: fullName.trim(), must_change_password: true },
   });
 
   if (error) {

@@ -53,6 +53,19 @@ export async function isAdmin(): Promise<boolean> {
 }
 
 /**
+ * Whether the signed-in user still holds an admin-set temporary password. The
+ * flag lives in Supabase user metadata (set at account creation, cleared when
+ * they change it), so it needs no database column and no type regeneration.
+ */
+export const mustChangePassword = cache(async (): Promise<boolean> => {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user?.user_metadata?.must_change_password === true;
+});
+
+/**
  * Gate an operator-only screen. A TA who reaches one is sent to their home at
  * /jobs rather than shown an empty page. RLS still enforces the boundary; this
  * is the friendly door.
