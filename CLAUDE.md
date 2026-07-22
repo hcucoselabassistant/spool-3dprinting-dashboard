@@ -84,6 +84,11 @@ and course, plus printer reliability). That makes seven routes, not six.
   ready_for_pickup`, `ready_for_pickup → collected`, and `* → cancelled`.
   See the table in `spec/02-workflows.md` for which is which.
 - `printer.hours_since_service` is a view column, not a stored column.
+- `job.est_minutes` / `est_grams` are **nullable and not collected at intake**.
+  They are the slicer's numbers, so the operator enters them at approval
+  (optional) or in the start dialog (required). The over-quota warning fires
+  once, wherever `est_grams` is first written — that is why it is not pinned to
+  approval. Do not add them back to the new-job form.
 - A spool's `remaining_grams` decrements only when an attempt is finalised, and
   it decrements for failed attempts too. That is intentional.
 - The trigger functions are `security definer` on purpose. Without it their

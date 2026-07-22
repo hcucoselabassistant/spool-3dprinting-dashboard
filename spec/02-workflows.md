@@ -33,13 +33,40 @@ from `submitted`, `queued`, or `post_processing` by explicit operator action.
 Application code never writes `job.status` for the trigger-driven rows. Doing so
 will desynchronise the printer state.
 
+## Who supplies the estimate
+
+`est_minutes` and `est_grams` are the slicer's numbers, so they belong to
+whoever has the slicer open — the operator, not the person taking the request at
+the desk. Intake never asks for them.
+
+- **At approval** the operator may enter them. Optional: approving a stack of
+  desk requests before slicing any of them is the normal case. A queued job with
+  no estimate is flagged `needs estimate` in the queue.
+- **At start** they are required, pre-filled from approval if they were given
+  there and still editable — the operator is looking at the slice right now, and
+  re-slicing a job that failed is ordinary, not an exception.
+
+Numbers typed at start win over anything recorded earlier. Nothing reaches a
+printer unestimated: `startPrint` refuses, and `guard_spool_sufficient` raises
+on a null estimate rather than letting a NULL comparison wave the attempt
+through.
+
+The over-quota warning fires **once, wherever `est_grams` is first written** —
+at approval if the numbers were known then, otherwise in the start dialog. It
+warns and never blocks, in both places.
+
 ## Starting a print
 
 1. Operator picks a queued job and an available printer.
-2. UI suggests spools matching `job.material`, sorted by least remaining that
+2. Estimate: pre-filled if it was given at approval, required either way. The
+   spool list re-narrows as grams are typed.
+3. UI suggests spools matching `job.material`, sorted by least remaining that
    still covers `est_grams` — this burns down partial spools first.
-3. On confirm, insert an `attempt` with `expected_end = now() + est_minutes`.
-4. Triggers set the job to `printing` and the printer to `printing`.
+4. On confirm, the estimate is written to the job, then an `attempt` is inserted
+   with `expected_end = now() + est_minutes`. That order matters:
+   `guard_spool_sufficient` reads the estimate off the job row, not off the
+   insert.
+5. Triggers set the job to `printing` and the printer to `printing`.
 
 If the printer is down or the spool is short, the insert raises. Show the raised
 message directly; it is already human-readable.

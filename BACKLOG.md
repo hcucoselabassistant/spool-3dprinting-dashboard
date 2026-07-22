@@ -82,8 +82,11 @@ trigger point and stopped there. Swap in a real email provider behind that actio
 On file upload, parse the slicer header to pre-fill `est_minutes` / `est_grams`
 instead of typing them. Build plan ranks this #1 after phase 7 — "removes the most
 typing."
-- **Fit:** hooks into the upload path in `app/(app)/jobs/job-form.tsx` /
-  `actions.ts`; parse client-side or in a server action after upload.
+- **Fit:** the estimate is now typed by the operator in the approve and start
+  dialogs (`job-actions.tsx`, `start-modal.tsx`), so a parsed header would
+  pre-fill those rather than the intake form. Parse client-side on upload in
+  `job-form.tsx`, or in a server action after upload, and store the result on the
+  job as the estimate.
 - **Effort:** M.
 
 ### 13. Drag-to-reschedule on the floor timeline  [🔵 deferred feature]

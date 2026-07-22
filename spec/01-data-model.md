@@ -47,8 +47,11 @@ Format at render time.
 
 ## Estimates vs actuals
 
-`job.est_minutes` and `job.est_grams` come from the slicer at submission. They
-exist so the queue can be scheduled before anything starts printing.
+`job.est_minutes` and `job.est_grams` come from the slicer, and are nullable
+because a job is submitted before anyone has sliced it. An operator supplies
+them at approval or, at the latest, when starting the print — see
+`spec/02-workflows.md`. They exist so the queue can be scheduled before anything
+starts printing, which is also why nothing can start without them.
 
 `attempt.actual_grams` is captured at completion. The gap between the two is the
 signal — a job that consistently overruns its estimate means someone is

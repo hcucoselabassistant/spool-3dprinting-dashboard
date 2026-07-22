@@ -53,7 +53,8 @@ categories — the point is that a TA reads one list and works down it.
 **Unassigned queue.** Jobs in `queued`, sorted by `priority desc, needed_by,
 created_at`. Each row shows owner, material, estimates, deadline, and a printer
 picker. Selecting a printer opens the start-print confirm with the spool
-suggestion pre-filled.
+suggestion pre-filled. A job with no estimate yet is badged `needs estimate` and
+shows `—` for size and duration; the start dialog collects them.
 
 ## `/jobs/[id]` — Job detail
 
