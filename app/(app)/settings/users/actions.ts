@@ -83,11 +83,19 @@ export async function createStaff(
   });
 
   if (error) {
-    return {
-      error: error.message.includes("already been registered")
-        ? "An account with that email already exists."
-        : error.message,
-    };
+    const msg = error.message.toLowerCase();
+    if (msg.includes("already been registered")) {
+      return { error: "An account with that email already exists." };
+    }
+    if (msg.includes("api key") || msg.includes("invalid") || error.status === 401) {
+      return {
+        error:
+          "The server's SUPABASE_SERVICE_ROLE_KEY is wrong. Copy the service_role " +
+          "secret from Supabase → Settings → API into Vercel (exactly, no spaces) " +
+          "and redeploy.",
+      };
+    }
+    return { error: error.message };
   }
 
   // The trigger created the app_user row as 'ta'. Bump it if needed.
