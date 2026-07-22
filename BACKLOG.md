@@ -145,6 +145,16 @@ regression net.
 
 ## ✅ Completed & resolved
 
+### 21. Password self-service + forced change on first login  [✅ DONE]
+Admin-set passwords are temporary. `createStaff` now tags new accounts with a
+`must_change_password` flag in Supabase user metadata (no schema column); the
+`(app)` layout redirects a flagged user to `/change-password` (a route outside
+the group, so no redirect loop) before they can use anything. That page changes
+the password on the user's own session — no service key — and clears the flag in
+the same call. A "Password" header link exposes voluntary changes too. Also
+hardened `createStaff` to show a message instead of crashing when the service
+key is missing. Pushed on `main` (`6b36a13`).
+
 ### 1. Apply migration `…150700_harden_job_and_storage.sql`  [✅ DONE]
 Applied to the live database. Closes the security-review findings: the
 `job_guard_status` trigger blocks a TA from self-approving their own job via a
