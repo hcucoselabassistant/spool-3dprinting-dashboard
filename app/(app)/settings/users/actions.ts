@@ -60,7 +60,18 @@ export async function createStaff(
     return { error: "Pick a role." };
   }
 
-  const service = createAdminClient();
+  // createAdminClient throws if the service key is missing. Catch it so the
+  // screen shows a clear message instead of crashing the whole page.
+  let service: ReturnType<typeof createAdminClient>;
+  try {
+    service = createAdminClient();
+  } catch {
+    return {
+      error:
+        "Account creation is not configured: SUPABASE_SERVICE_ROLE_KEY is not " +
+        "set on the server. Add it in Vercel (as a server variable) and redeploy.",
+    };
+  }
 
   const { data: created, error } = await service.auth.admin.createUser({
     email: email.trim(),
