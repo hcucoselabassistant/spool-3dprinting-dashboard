@@ -23,10 +23,16 @@ export function NeedsAttention({
   printers: PrinterOption[];
   spools: ViableSpool[];
 }) {
-  const [finish, setFinish] = useState<{ id: string; grams: number } | null>(null);
-  const [start, setStart] = useState<
-    { jobId: string; material: string; grams: number } | null
-  >(null);
+  const [finish, setFinish] = useState<{
+    id: string;
+    grams: number | null;
+  } | null>(null);
+  const [start, setStart] = useState<{
+    jobId: string;
+    material: string;
+    minutes: number | null;
+    grams: number | null;
+  } | null>(null);
 
   if (items.length === 0) {
     return (
@@ -62,6 +68,7 @@ export function NeedsAttention({
                   setStart({
                     jobId: item.jobId,
                     material: item.material,
+                    minutes: item.estMinutes,
                     grams: item.estGrams,
                   })
                 }
@@ -117,6 +124,7 @@ export function NeedsAttention({
         <StartModal
           jobId={start.jobId}
           material={start.material}
+          estMinutes={start.minutes}
           estGrams={start.grams}
           printers={printers}
           spools={spools}

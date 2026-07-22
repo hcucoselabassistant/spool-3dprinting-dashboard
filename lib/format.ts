@@ -2,8 +2,13 @@ import { TIMEZONE } from "@/lib/config";
 
 // Grams, minutes, and cents are integers everywhere in the database. They become
 // human units here and nowhere else.
+//
+// Grams and minutes take null because a job carries no estimate until an
+// operator slices it. An em dash is what "not known yet" looks like throughout
+// this UI -- same as an absent date.
 
-export function formatGrams(grams: number): string {
+export function formatGrams(grams: number | null): string {
+  if (grams === null) return "—";
   if (grams >= 1000) {
     return `${(grams / 1000).toFixed(2)} kg`;
   }
@@ -27,7 +32,8 @@ export function formatCostPerGram(
   return `${(costCents / totalGrams).toFixed(2)}¢/g`;
 }
 
-export function formatMinutes(minutes: number): string {
+export function formatMinutes(minutes: number | null): string {
+  if (minutes === null) return "—";
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
   if (hours === 0) return `${rest}m`;

@@ -78,7 +78,11 @@ export function NewJobForm({ owners }: { owners: OwnerOption[] }) {
       action={action}
       className="rounded-lg border border-border bg-surface p-4"
     >
-      <h2 className="mb-4 font-medium">New job</h2>
+      <h2 className="mb-1 font-medium">New job</h2>
+      <p className="mb-4 text-sm text-muted">
+        Time and filament estimates are not asked for here — an operator adds
+        them from the slicer when the job is approved or started.
+      </p>
 
       <div className="mb-3">
         <span className="mb-1.5 block text-sm text-muted">Owner</span>
@@ -101,13 +105,6 @@ export function NewJobForm({ owners }: { owners: OwnerOption[] }) {
               <option key={material} value={material} />
             ))}
           </datalist>
-        </Field>
-
-        <Field label="Estimated minutes" hint="From the slicer">
-          <TextInput name="est_minutes" type="number" min={1} required />
-        </Field>
-        <Field label="Estimated grams" hint="From the slicer">
-          <TextInput name="est_grams" type="number" min={1} required />
         </Field>
 
         <Field label="Colour preference" hint="Optional">

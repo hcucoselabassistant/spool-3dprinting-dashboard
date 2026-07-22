@@ -52,6 +52,11 @@ export function QueueList({
                   failed before
                 </span>
               ) : null}
+              {job.estGrams === null || job.estMinutes === null ? (
+                <span className="ml-2 rounded bg-status-maintenance/15 px-1.5 py-0.5 text-xs text-status-maintenance">
+                  needs estimate
+                </span>
+              ) : null}
             </p>
             <p className="text-muted">{job.ownerName}</p>
           </div>
@@ -83,6 +88,7 @@ export function QueueList({
         <StartModal
           jobId={starting.id}
           material={starting.material}
+          estMinutes={starting.estMinutes}
           estGrams={starting.estGrams}
           printers={printers}
           spools={spools}

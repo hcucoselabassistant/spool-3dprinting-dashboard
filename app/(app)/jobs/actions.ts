@@ -48,9 +48,10 @@ function isOwnerKind(value: FormDataEntryValue | null): value is OwnerKind {
  * submission -- a TA at the desk should not have to leave the form to add a
  * student who has never printed before.
  *
- * Estimates are the slicer's numbers and are required: the queue is scheduled
- * against them before anything starts printing, and guard_spool_sufficient
- * refuses an attempt whose spool cannot cover est_grams.
+ * Estimates are deliberately NOT collected here. They are the slicer's numbers
+ * and whoever takes the request at the desk usually has no slicer open; the
+ * operator supplies them at approval, or at the latest in the start dialog.
+ * Nothing can print without them -- see startPrint and guard_spool_sufficient.
  *
  * The file is NOT in this payload. It is uploaded from the browser straight to
  * Storage before this runs, and only its path arrives here as file_path. Vercel
@@ -66,20 +67,12 @@ export async function createJob(
 
   const title = formData.get("title");
   const material = formData.get("material");
-  const estMinutes = readInt(formData.get("est_minutes"));
-  const estGrams = readInt(formData.get("est_grams"));
 
   if (typeof title !== "string" || title.trim() === "") {
     return { error: "Give the job a title so it can be found on the shelf." };
   }
   if (typeof material !== "string" || material.trim() === "") {
     return { error: "Material is required." };
-  }
-  if (estMinutes === null || estMinutes <= 0) {
-    return { error: "Estimated minutes must be a positive whole number." };
-  }
-  if (estGrams === null || estGrams <= 0) {
-    return { error: "Estimated grams must be a positive whole number." };
   }
 
   const ownerId = await resolveOwner(formData, supabase);
@@ -95,8 +88,6 @@ export async function createJob(
       title: title.trim(),
       material: material.trim(),
       color_preference: asOptionalText(formData.get("color_preference")),
-      est_minutes: estMinutes,
-      est_grams: estGrams,
       needed_by: asOptionalText(formData.get("needed_by")),
       notes: asOptionalText(formData.get("notes")),
       priority: readInt(formData.get("priority")) ?? 0,

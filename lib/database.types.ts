@@ -129,8 +129,8 @@ export type Database = {
           collected_at: string | null
           color_preference: string | null
           created_at: string
-          est_grams: number
-          est_minutes: number
+          est_grams: number | null
+          est_minutes: number | null
           file_path: string | null
           id: string
           material: string
@@ -148,8 +148,8 @@ export type Database = {
           collected_at?: string | null
           color_preference?: string | null
           created_at?: string
-          est_grams: number
-          est_minutes: number
+          est_grams?: number | null
+          est_minutes?: number | null
           file_path?: string | null
           id?: string
           material: string
@@ -167,8 +167,8 @@ export type Database = {
           collected_at?: string | null
           color_preference?: string | null
           created_at?: string
-          est_grams?: number
-          est_minutes?: number
+          est_grams?: number | null
+          est_minutes?: number | null
           file_path?: string | null
           id?: string
           material?: string

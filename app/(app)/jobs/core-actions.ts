@@ -38,14 +38,87 @@ function revalidateLoop() {
 }
 
 /**
+ * An estimate field: a positive whole number, or null when it was left blank.
+ * "invalid" is distinct from blank on purpose -- a typo must complain rather
+ * than be silently recorded as "not estimated yet".
+ */
+type Estimate = number | null | "invalid";
+
+function readEstimate(value: FormDataEntryValue | null): Estimate {
+  if (typeof value !== "string" || value.trim() === "") return null;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : "invalid";
+}
+
+/**
+ * Minutes and grams are read as a pair everywhere. Half an estimate schedules
+ * nothing: grams choose the spool, minutes set attempt.expected_end.
+ */
+function readEstimatePair(
+  formData: FormData,
+): { minutes: number; grams: number } | { none: true } | { error: string } {
+  const minutes = readEstimate(formData.get("est_minutes"));
+  const grams = readEstimate(formData.get("est_grams"));
+
+  if (minutes === "invalid") {
+    return { error: "Estimated minutes must be a positive whole number." };
+  }
+  if (grams === "invalid") {
+    return { error: "Estimated grams must be a positive whole number." };
+  }
+  if (minutes === null && grams === null) return { none: true };
+  if (minutes === null || grams === null) {
+    return {
+      error: "Enter both minutes and grams — half an estimate can't schedule a print.",
+    };
+  }
+  return { minutes, grams };
+}
+
+/**
+ * The over-quota warning, or null when there is nothing to warn about.
+ *
+ * It fires at the moment est_grams is first written to a job -- at approval if
+ * the operator had the slicer numbers then, otherwise in the start dialog. That
+ * keeps it exactly once per job: a job that arrives at start already estimated
+ * was warned about at approval.
+ */
+async function quotaWarningFor(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ownerId: string,
+  grams: number,
+): Promise<string | null> {
+  const [{ data: owner }, { data: usage }] = await Promise.all([
+    supabase.from("owner").select("display_name, quota_grams").eq("id", ownerId).single(),
+    supabase.from("owner_usage").select("grams_success").eq("owner_id", ownerId).maybeSingle(),
+  ]);
+
+  if (owner?.quota_grams == null) return null;
+
+  const used = usage?.grams_success ?? 0;
+  const after = used + grams;
+  if (after <= owner.quota_grams) return null;
+
+  return (
+    `${owner.display_name} has used ${used} g of a ${owner.quota_grams} g quota. ` +
+    `This job adds ${grams} g, reaching ${after} g. Continue anyway?`
+  );
+}
+
+/**
  * Approve: submitted -> queued. Operator-driven, so the app writes job.status
  * directly. This is one of the four transitions that are NOT the trigger's.
  *
- * At approval, successful grams already used are checked against the owner's
- * quota. Over quota WARNS but never BLOCKS -- the alternative is a student's
- * coursework stuck at 11pm with nobody to appeal to (spec/02-workflows.md). The
- * first call returns the warning; a second call with override=true proceeds and
- * logs who overrode what.
+ * Approval is also the first place the slicer estimate can be recorded. It is
+ * optional here -- an operator approving a stack of requests before slicing any
+ * of them should not be blocked -- but if it is skipped, startPrint requires it
+ * before the job can reach a printer.
+ *
+ * When grams are known, successful grams already used are checked against the
+ * owner's quota. Over quota WARNS but never BLOCKS -- the alternative is a
+ * student's coursework stuck at 11pm with nobody to appeal to
+ * (spec/02-workflows.md). The first call returns the warning; a second call
+ * with override=true proceeds and logs who overrode what.
  */
 export async function approveJob(
   _prev: ActionState,
@@ -57,6 +130,9 @@ export async function approveJob(
   const id = formData.get("job_id");
   const override = formData.get("override") === "true";
   if (typeof id !== "string") return { error: "Missing job id." };
+
+  const estimate = readEstimatePair(formData);
+  if ("error" in estimate) return { error: estimate.error };
 
   const supabase = await createClient();
 
@@ -70,29 +146,26 @@ export async function approveJob(
     return { error: `This job is ${job.status}, not awaiting approval.` };
   }
 
-  if (!override) {
-    const [{ data: owner }, { data: usage }] = await Promise.all([
-      supabase.from("owner").select("display_name, quota_grams").eq("id", job.owner_id).single(),
-      supabase.from("owner_usage").select("grams_success").eq("owner_id", job.owner_id).maybeSingle(),
-    ]);
+  // Jobs submitted before estimates moved to the operator already carry one;
+  // whatever was just typed wins over it.
+  const grams = "none" in estimate ? job.est_grams : estimate.grams;
 
-    if (owner?.quota_grams != null) {
-      const used = usage?.grams_success ?? 0;
-      const after = used + job.est_grams;
-      if (after > owner.quota_grams) {
-        return {
-          error: null,
-          quotaWarning:
-            `${owner.display_name} has used ${used} g of a ${owner.quota_grams} g quota. ` +
-            `Approving this adds ${job.est_grams} g, reaching ${after} g. Approve anyway?`,
-        };
-      }
-    }
+  if (!override && grams !== null) {
+    const warning = await quotaWarningFor(supabase, job.owner_id, grams);
+    if (warning) return { error: null, quotaWarning: warning };
   }
 
   const { error } = await supabase
     .from("job")
-    .update({ status: "queued" })
+    .update(
+      "none" in estimate
+        ? { status: "queued" }
+        : {
+            status: "queued",
+            est_minutes: estimate.minutes,
+            est_grams: estimate.grams,
+          },
+    )
     .eq("id", id)
     .eq("status", "submitted");
 
@@ -111,8 +184,13 @@ export async function approveJob(
 }
 
 /**
- * Start a print. This is the ONLY thing the app does -- it inserts an attempt.
- * The triggers move the job to printing and the printer to printing.
+ * Start a print. Inserting the attempt is the ONLY status work the app does
+ * here -- the triggers move the job to printing and the printer to printing.
+ *
+ * This is the last point at which an estimate can be supplied, and the point at
+ * which it stops being optional: grams decide which spool can cover the print,
+ * minutes set attempt.expected_end, which is not null. If the job is still
+ * unestimated and the form carries no numbers, nothing is written at all.
  *
  * The insert can raise: printer down, spool short, another live attempt on the
  * printer. Those messages are already human-readable, so they are surfaced as
@@ -129,6 +207,7 @@ export async function startPrint(
   const jobId = formData.get("job_id");
   const printerId = formData.get("printer_id");
   const spoolId = formData.get("spool_id");
+  const override = formData.get("override") === "true";
 
   if (typeof jobId !== "string") return { error: "Missing job id." };
   if (typeof printerId !== "string" || printerId === "") {
@@ -138,11 +217,14 @@ export async function startPrint(
     return { error: "Pick a spool." };
   }
 
+  const estimate = readEstimatePair(formData);
+  if ("error" in estimate) return { error: estimate.error };
+
   const supabase = await createClient();
 
   const { data: job, error: jobError } = await supabase
     .from("job")
-    .select("est_minutes, status")
+    .select("est_minutes, est_grams, owner_id, status")
     .eq("id", jobId)
     .single();
 
@@ -151,9 +233,38 @@ export async function startPrint(
     return { error: `This job is ${job.status}, not queued — reload the page.` };
   }
 
-  const expectedEnd = new Date(
-    Date.now() + job.est_minutes * 60_000,
-  ).toISOString();
+  // Numbers typed here win over anything already on the job: the operator is
+  // looking at the slice right now.
+  const typed = "none" in estimate ? null : estimate;
+  const minutes = typed?.minutes ?? job.est_minutes;
+  const grams = typed?.grams ?? job.est_grams;
+
+  if (minutes === null || grams === null) {
+    return {
+      error:
+        "This job has no estimate yet. Enter the slicer's minutes and grams before starting it.",
+    };
+  }
+
+  // The quota gate fires once, where the estimate is first recorded. A job that
+  // arrives here already estimated was checked at approval.
+  if (!override && job.est_grams === null) {
+    const warning = await quotaWarningFor(supabase, job.owner_id, grams);
+    if (warning) return { error: null, quotaWarning: warning };
+  }
+
+  if (job.est_minutes !== minutes || job.est_grams !== grams) {
+    const { error: estimateError } = await supabase
+      .from("job")
+      .update({ est_minutes: minutes, est_grams: grams })
+      .eq("id", jobId)
+      .eq("status", "queued");
+    // Written before the attempt because guard_spool_sufficient reads it off
+    // the job row, not off this insert.
+    if (estimateError) return { error: estimateError.message };
+  }
+
+  const expectedEnd = new Date(Date.now() + minutes * 60_000).toISOString();
 
   const { error } = await supabase.from("attempt").insert({
     job_id: jobId,
@@ -164,6 +275,14 @@ export async function startPrint(
   });
 
   if (error) return { error: humanizeAttemptError(error.message) };
+
+  if (override) {
+    // No override-log table in v1; the server log is the record. Build the
+    // trigger point, log it, stop there -- same rule as notifications.
+    console.warn(
+      `[quota override] ${staff.full_name} (${staff.id}) started job ${jobId} over its owner's quota.`,
+    );
+  }
 
   revalidateLoop();
   return OK;

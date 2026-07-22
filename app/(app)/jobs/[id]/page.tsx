@@ -44,7 +44,14 @@ export default async function JobDetailPage({
 
       <dl className="mt-6 grid grid-cols-2 gap-4 rounded-lg border border-border bg-surface p-4 text-sm sm:grid-cols-4">
         <Fact label="Material" value={job.material} />
-        <Fact label="Estimate" value={`${formatMinutes(job.est_minutes)} · ${formatGrams(job.est_grams)}`} />
+        <Fact
+          label="Estimate"
+          value={
+            job.est_minutes === null && job.est_grams === null
+              ? "Not estimated yet"
+              : `${formatMinutes(job.est_minutes)} · ${formatGrams(job.est_grams)}`
+          }
+        />
         <Fact label="Needed by" value={job.needed_by ? formatDate(job.needed_by) : "—"} />
         <Fact label="Priority" value={String(job.priority)} />
         {job.color_preference ? (

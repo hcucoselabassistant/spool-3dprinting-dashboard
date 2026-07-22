@@ -12,18 +12,22 @@ export type TimelineRow = {
     id: string;
     jobId: string;
     jobTitle: string;
-    estGrams: number;
+    estGrams: number | null;
     startedAt: string;
     expectedEnd: string;
   } | null;
 };
 
+/**
+ * A queued job may not be estimated yet -- the operator supplies the slicer
+ * numbers at approval or, at the latest, in the start dialog.
+ */
 export type QueueJob = {
   id: string;
   title: string;
   material: string;
-  estMinutes: number;
-  estGrams: number;
+  estMinutes: number | null;
+  estGrams: number | null;
   neededBy: string | null;
   priority: number;
   ownerName: string;
@@ -42,7 +46,7 @@ export type AttentionItem =
       attemptId: string;
       jobId: string;
       jobTitle: string;
-      estGrams: number;
+      estGrams: number | null;
       printerName: string;
       expectedEnd: string;
     }
@@ -53,7 +57,8 @@ export type AttentionItem =
       jobTitle: string;
       ownerName: string;
       material: string;
-      estGrams: number;
+      estMinutes: number | null;
+      estGrams: number | null;
     }
   | {
       kind: "stale_pickup";
@@ -155,7 +160,7 @@ export async function getFloorData(): Promise<FloorData> {
             id: attempt.id,
             jobId: attempt.job_id,
             jobTitle: attempt.job?.title ?? "untitled",
-            estGrams: attempt.job?.est_grams ?? 0,
+            estGrams: attempt.job?.est_grams ?? null,
             startedAt: attempt.started_at,
             expectedEnd: attempt.expected_end,
           }
@@ -202,7 +207,7 @@ export async function getFloorData(): Promise<FloorData> {
         attemptId: a.id,
         jobId: a.job_id,
         jobTitle: a.job?.title ?? "untitled",
-        estGrams: a.job?.est_grams ?? 0,
+        estGrams: a.job?.est_grams ?? null,
         printerName: printer?.name ?? "?",
         expectedEnd: a.expected_end,
       });
@@ -218,6 +223,7 @@ export async function getFloorData(): Promise<FloorData> {
         jobTitle: job.title,
         ownerName: job.ownerName,
         material: job.material,
+        estMinutes: job.estMinutes,
         estGrams: job.estGrams,
       });
     }

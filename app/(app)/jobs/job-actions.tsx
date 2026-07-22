@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 
-import { FormError, TextInput } from "@/components/form";
+import { Field, FormError, SubmitButton, TextInput } from "@/components/form";
 import { Modal } from "@/components/modal";
 import type { ViableSpool } from "@/lib/queries/core";
 import type { JobListItem } from "@/lib/queries/jobs";
@@ -39,9 +39,9 @@ export function JobActions({
   canOperate: boolean;
   isOwn: boolean;
 }) {
-  const [modal, setModal] = useState<null | "start" | "finish" | "ready" | "cancel">(
-    null,
-  );
+  const [modal, setModal] = useState<
+    null | "approve" | "start" | "finish" | "ready" | "cancel"
+  >(null);
 
   const cancelable = ["submitted", "queued", "post_processing"].includes(
     job.status,
@@ -71,7 +71,12 @@ export function JobActions({
   return (
     <div className="flex items-center justify-end gap-2">
       {job.status === "submitted" ? (
-        <ApproveControl jobId={job.id} />
+        <button
+          onClick={() => setModal("approve")}
+          className="rounded-md bg-status-printing px-3 py-1.5 text-sm font-medium text-background"
+        >
+          Approve
+        </button>
       ) : null}
 
       {job.status === "queued" ? (
@@ -119,10 +124,15 @@ export function JobActions({
         </button>
       ) : null}
 
+      {modal === "approve" ? (
+        <ApproveModal job={job} onClose={() => setModal(null)} />
+      ) : null}
+
       {modal === "start" ? (
         <StartModal
           jobId={job.id}
           material={job.material}
+          estMinutes={job.est_minutes}
           estGrams={job.est_grams}
           printers={printers}
           spools={spools}
@@ -150,52 +160,81 @@ export function JobActions({
 }
 
 /**
- * Approve, with the quota check. A first click may come back with a quota
- * warning; the confirm dialog then re-submits with override set. Quota never
- * blocks -- it only makes the operator look before overriding.
+ * Approve: the job joins the queue, and the slicer estimate is recorded if the
+ * operator has it. Leaving the estimate blank is a normal outcome -- approving
+ * a stack of desk requests before slicing any of them is the common case, and
+ * the start dialog asks again and refuses to run without it.
+ *
+ * When grams are given, the quota check runs here. Quota never blocks; the
+ * warning comes back with a tick-box that re-submits as an override.
  */
-function ApproveControl({ jobId }: { jobId: string }) {
+function ApproveModal({
+  job,
+  onClose,
+}: {
+  job: JobListItem;
+  onClose: () => void;
+}) {
   const [state, action] = useActionState(approveJob, INITIAL);
+  useEffect(() => {
+    if (state.ok) onClose();
+  }, [state.ok, onClose]);
 
   return (
-    <>
-      <form action={action} className="flex items-center gap-2">
-        <input type="hidden" name="job_id" value={jobId} />
-        {state.error ? (
-          <span className="text-xs text-status-failed">{state.error}</span>
-        ) : null}
-        <button
-          type="submit"
-          className="rounded-md bg-status-printing px-3 py-1.5 text-sm font-medium text-background"
-        >
-          Approve
-        </button>
-      </form>
+    <Modal title={`Approve “${job.title}”`} onClose={onClose}>
+      <form action={action} className="flex flex-col gap-4">
+        <input type="hidden" name="job_id" value={job.id} />
 
-      {state.quotaWarning ? (
-        <Modal title="Over quota" onClose={() => location.reload()}>
-          <p className="text-sm">{state.quotaWarning}</p>
-          <div className="mt-4 flex justify-end gap-2">
-            <button
-              onClick={() => location.reload()}
-              className="rounded-md border border-border px-4 py-2 text-sm"
-            >
-              Don’t approve
-            </button>
-            <form action={action}>
-              <input type="hidden" name="job_id" value={jobId} />
-              <input type="hidden" name="override" value="true" />
-              <button
-                type="submit"
-                className="rounded-md bg-status-printing px-4 py-2 text-sm font-medium text-background"
-              >
-                Approve anyway
-              </button>
-            </form>
+        <p className="text-sm text-muted">
+          This moves the job into the queue. The estimate is optional here — if
+          you haven’t sliced it yet, leave both blank and fill them in when you
+          start the print.
+        </p>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Estimated minutes" hint="From the slicer">
+            <TextInput
+              name="est_minutes"
+              type="number"
+              min={1}
+              autoFocus
+              defaultValue={job.est_minutes ?? ""}
+            />
+          </Field>
+          <Field label="Estimated grams" hint="From the slicer">
+            <TextInput
+              name="est_grams"
+              type="number"
+              min={1}
+              defaultValue={job.est_grams ?? ""}
+            />
+          </Field>
+        </div>
+
+        {state.quotaWarning ? (
+          <div className="rounded-md border border-status-maintenance/40 bg-status-maintenance/10 px-3 py-2 text-sm">
+            <p>{state.quotaWarning}</p>
+            <label className="mt-2 flex items-center gap-2">
+              <input type="checkbox" name="override" value="true" />
+              <span>Approve anyway</span>
+            </label>
           </div>
-        </Modal>
-      ) : null}
-    </>
+        ) : null}
+
+        <FormError message={state.error} />
+
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-border px-4 py-2 text-sm"
+          >
+            Don’t approve
+          </button>
+          <SubmitButton>Approve</SubmitButton>
+        </div>
+      </form>
+    </Modal>
   );
 }
 

@@ -31,7 +31,9 @@ type Outcome = "success" | "failed" | "cancelled";
  * - Not dismissable by backdrop or Escape -- an outcome must be chosen.
  * - Outcome starts unselected. There is no default that lets someone click
  *   through without deciding.
- * - Actual grams pre-fills the estimate but is required and editable.
+ * - Actual grams pre-fills the estimate but is required and editable. A print
+ *   cannot start unestimated, so in practice there is always a figure to
+ *   pre-fill; the null case is only there for pre-existing rows.
  * - Failure reason appears and is required only for a failed outcome.
  */
 export function FinishModal({
@@ -40,7 +42,7 @@ export function FinishModal({
   onClose,
 }: {
   attemptId: string;
-  estGrams: number;
+  estGrams: number | null;
   onClose: () => void;
 }) {
   const [state, action] = useActionState(finishAttempt, INITIAL);
@@ -85,13 +87,17 @@ export function FinishModal({
 
         <Field
           label="Actual grams used"
-          hint="Pre-filled with the estimate. Correct it to what the spool actually lost."
+          hint={
+            estGrams === null
+              ? "What the spool actually lost."
+              : "Pre-filled with the estimate. Correct it to what the spool actually lost."
+          }
         >
           <TextInput
             name="actual_grams"
             type="number"
             min={0}
-            defaultValue={estGrams}
+            defaultValue={estGrams ?? undefined}
             required
           />
         </Field>
@@ -117,9 +123,9 @@ export function FinishModal({
 
         {outcome === "failed" ? (
           <p className="text-xs text-muted">
-            Filament is still deducted from the spool on a failure — {""}
-            {formatGrams(estGrams)} estimated. This is intentional; the waste has
-            to be attributed somewhere.
+            Filament is still deducted from the spool on a failure
+            {estGrams === null ? "" : ` — ${formatGrams(estGrams)} estimated`}.
+            This is intentional; the waste has to be attributed somewhere.
           </p>
         ) : null}
 
